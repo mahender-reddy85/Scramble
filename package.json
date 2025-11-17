@@ -82,9 +82,15 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19"
   },
-  "description": "**URL**: https://lovable.dev/projects/78eb23cc-d526-429c-ac70-4ff60418e730",
-  "main": "eslint.config.js",
-  "keywords": [],
+  "description": "A word scramble game built with React, TypeScript, and MySQL backend",
+  "main": "index.js",
+  "keywords": [
+    "word-scramble",
+    "game",
+    "react",
+    "typescript",
+    "mysql"
+  ],
   "author": "",
   "license": "ISC"
 }

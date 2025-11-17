@@ -22,7 +22,7 @@ router.post('/register', [
   try {
     // Check if user exists
     const [existing] = await pool.execute(
-      'SELECT id FROM profiles WHERE id = ? OR username = ?',
+      'SELECT id FROM users WHERE email = ? OR username = ?',
       [email, username]
     );
 
@@ -33,18 +33,25 @@ router.post('/register', [
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user (simplified - in real app, you'd have a users table)
+    // Create user
+    const userId = Date.now().toString();
+    await pool.execute(
+      'INSERT INTO users (id, email, password_hash, username) VALUES (?, ?, ?, ?)',
+      [userId, email, hashedPassword, username]
+    );
+
+    // Create profile
     await pool.execute(
       'INSERT INTO profiles (id, username) VALUES (?, ?)',
-      [email, username]
+      [userId, username]
     );
 
     // Generate token
-    const token = jwt.sign({ id: email, username }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: userId, username }, process.env.JWT_SECRET, {
       expiresIn: '7d'
     });
 
-    res.status(201).json({ token, user: { id: email, username } });
+    res.status(201).json({ token, user: { id: userId, username } });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -64,10 +71,9 @@ router.post('/login', [
   const { email, password } = req.body;
 
   try {
-    // In a real app, you'd check against a users table with passwords
-    // For now, we'll just check if the profile exists
+    // Check if user exists and get password hash
     const [users] = await pool.execute(
-      'SELECT id, username FROM profiles WHERE id = ?',
+      'SELECT id, username, password_hash FROM users WHERE email = ?',
       [email]
     );
 
@@ -75,14 +81,20 @@ router.post('/login', [
       return res.status(400).json({ error: 'User not found' });
     }
 
-    // Generate token (simplified auth)
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, users[0].password_hash);
+    if (!isValidPassword) {
+      return res.status(400).json({ error: 'Invalid password' });
+    }
+
+    // Generate token
     const token = jwt.sign(
       { id: users[0].id, username: users[0].username },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    res.json({ token, user: users[0] });
+    res.json({ token, user: { id: users[0].id, username: users[0].username } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error' });
