@@ -25,6 +25,11 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/game', gameRoutes);
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: 'Scramble Game API Server', status: 'running' });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
