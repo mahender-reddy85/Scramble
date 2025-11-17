@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { apiClient, SOCKET_URL } from '@/integrations/supabase/client';
+import { apiClient, SOCKET_URL } from '@/integrations/apiClient';
 import { useNavigate } from 'react-router-dom';
 
 interface WordItem {

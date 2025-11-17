@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { apiClient } from '@/integrations/supabase/client';
+import { apiClient } from '@/integrations/apiClient';
 import { toast } from 'sonner';
 
 export default function Auth() {
