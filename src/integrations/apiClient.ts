@@ -1,6 +1,8 @@
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export const apiClient = {
   post: async (endpoint: string, data: any) => {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -17,7 +19,7 @@ export const apiClient = {
   },
 
   get: async (endpoint: string) => {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
@@ -32,7 +34,7 @@ export const apiClient = {
   },
 
   patch: async (endpoint: string, data: any) => {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +51,7 @@ export const apiClient = {
   },
 
   put: async (endpoint: string, data: any) => {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
