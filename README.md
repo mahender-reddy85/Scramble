@@ -79,6 +79,7 @@ The application will be available at `http://localhost:8080`
 ## Database Schema
 
 The application uses MySQL with the following main tables:
+- `users` - User authentication data
 - `profiles` - User profiles
 - `game_rooms` - Game rooms
 - `game_participants` - Room participants
