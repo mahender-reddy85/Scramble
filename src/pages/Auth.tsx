@@ -29,7 +29,7 @@ export default function Auth() {
         toast.success('Logged in successfully!');
         navigate('/');
       } else {
-        const response = await apiClient.post('/api/auth/register', { email, password });
+        const response = await apiClient.post('/api/auth/register', { email, password, username: email.split('@')[0] });
         localStorage.setItem('auth_token', response.token);
         toast.success('Account created! You can now log in.');
         setIsLogin(true);
