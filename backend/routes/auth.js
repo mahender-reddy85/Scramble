@@ -17,6 +17,8 @@ router.post('/register', [
     return res.status(400).json({ errors: errors.array() });
   }
 
+  console.log("BODY:", req.body);
+
   const { email, password, username } = req.body;
 
   try {
