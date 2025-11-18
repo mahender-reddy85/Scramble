@@ -48,38 +48,38 @@ io.on('connection', (socket) => {
       socket.join(roomId);
 
       // Get room info
-      const [roomData] = await pool.execute(`
+      const roomData = await pool.query(`
         SELECT gr.*, COUNT(gp.id) as player_count
         FROM game_rooms gr
         LEFT JOIN game_participants gp ON gr.id = gp.room_id
-        WHERE gr.id = ?
+        WHERE gr.id = $1
         GROUP BY gr.id
       `, [roomId]);
 
-      if (roomData.length === 0) {
+      if (roomData.rows.length === 0) {
         socket.emit('error', { message: 'Room not found' });
         return;
       }
 
       // Get participants
-      const [participants] = await pool.execute(`
+      const participants = await pool.query(`
         SELECT gp.*, p.username
         FROM game_participants gp
         LEFT JOIN profiles p ON gp.user_id = p.id
-        WHERE gp.room_id = ?
+        WHERE gp.room_id = $1
         ORDER BY gp.joined_at
       `, [roomId]);
 
       socket.emit('room-joined', {
-        room: roomData[0],
-        participants
+        room: roomData.rows[0],
+        participants: participants.rows
       });
 
       // Notify others
       socket.to(roomId).emit('participant-joined', {
         userId,
         playerName,
-        participants
+        participants: participants.rows
       });
 
     } catch (error) {
@@ -93,9 +93,9 @@ io.on('connection', (socket) => {
 
     try {
       // Update room status
-      await pool.execute(
-        'UPDATE game_rooms SET status = "active", started_at = NOW() WHERE id = ?',
-        [roomId]
+      await pool.query(
+        'UPDATE game_rooms SET status = $1, started_at = NOW() WHERE id = $2',
+        ['active', roomId]
       );
 
       // Notify all players in room
@@ -115,30 +115,30 @@ io.on('connection', (socket) => {
 
     try {
       // Record the event
-      await pool.execute(
-        'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES (?, ?, "answer_submitted", ?, ?, ?)',
-        [roomId, userId, word, isCorrect, points]
+      await pool.query(
+        'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
+        [roomId, userId, 'answer_submitted', word, isCorrect, points]
       );
 
       // Update score
       if (isCorrect) {
-        await pool.execute(
-          'UPDATE game_participants SET score = score + ?, current_streak = current_streak + 1 WHERE room_id = ? AND user_id = ?',
+        await pool.query(
+          'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
           [points, roomId, userId]
         );
       } else {
-        await pool.execute(
-          'UPDATE game_participants SET current_streak = 0 WHERE room_id = ? AND user_id = ?',
+        await pool.query(
+          'UPDATE game_participants SET current_streak = 0 WHERE room_id = $1 AND user_id = $2',
           [roomId, userId]
         );
       }
 
       // Get updated scores
-      const [participants] = await pool.execute(`
+      const participants = await pool.query(`
         SELECT gp.*, p.username
         FROM game_participants gp
         LEFT JOIN profiles p ON gp.user_id = p.id
-        WHERE gp.room_id = ?
+        WHERE gp.room_id = $1
         ORDER BY gp.score DESC
       `, [roomId]);
 
@@ -148,7 +148,7 @@ io.on('connection', (socket) => {
         word,
         isCorrect,
         points,
-        participants
+        participants: participants.rows
       });
 
     } catch (error) {

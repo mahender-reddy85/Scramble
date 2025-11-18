@@ -1,25 +1,15 @@
-import mysql from 'mysql2/promise';
+import pkg from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-};
+const { Pool } = pkg;
 
 async function initDatabase() {
   try {
-    // Create database if it doesn't exist
-    const connection = await mysql.createConnection(dbConfig);
-    await connection.execute('CREATE DATABASE IF NOT EXISTS scramble');
-    await connection.end();
-
-    // Connect to the database
-    const dbConnection = await mysql.createConnection({
-      ...dbConfig,
-      database: process.env.DB_NAME,
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
     });
 
     // Create tables
@@ -44,8 +34,8 @@ async function initDatabase() {
         id VARCHAR(255) PRIMARY KEY,
         room_code VARCHAR(10) UNIQUE NOT NULL,
         created_by VARCHAR(255),
-        difficulty ENUM('easy', 'medium', 'hard') NOT NULL,
-        status ENUM('waiting', 'active', 'finished') DEFAULT 'waiting',
+        difficulty VARCHAR(10) CHECK (difficulty IN ('easy', 'medium', 'hard')) NOT NULL,
+        status VARCHAR(10) CHECK (status IN ('waiting', 'active', 'finished')) DEFAULT 'waiting',
         started_at TIMESTAMP NULL,
         finished_at TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -96,11 +86,11 @@ async function initDatabase() {
     ];
 
     for (const table of tables) {
-      await dbConnection.execute(table);
+      await pool.query(table);
     }
 
     console.log('Database initialized successfully!');
-    await dbConnection.end();
+    await pool.end();
   } catch (error) {
     console.error('Error initializing database:', error);
     process.exit(1);
