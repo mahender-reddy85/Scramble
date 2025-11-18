@@ -2,11 +2,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const apiClient = {
   post: async (endpoint: string, data: any) => {
+    const token = localStorage.getItem('auth_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
       body: JSON.stringify(data),
     });
