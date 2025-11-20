@@ -45,11 +45,11 @@ router.post('/rooms', authenticateToken, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // Generate unique room code
+    // Generate unique 4-digit numeric room code
     let roomCode;
     let exists = true;
     while (exists) {
-      roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      roomCode = Math.floor(1000 + Math.random() * 9000).toString();
       const check = await pool.query(
         'SELECT id FROM game_rooms WHERE room_code = $1',
         [roomCode]
