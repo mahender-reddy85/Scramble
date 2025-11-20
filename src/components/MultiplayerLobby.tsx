@@ -32,7 +32,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     if (token) {
       // Decode token to get user ID (simplified)
       try {
@@ -78,19 +78,16 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     }
 
     setIsCreating(true);
-    const newRoomCode = generateRoomCode();
 
     try {
       const response = await apiClient.post('/api/game/rooms', {
-        room_code: newRoomCode,
-        difficulty,
-        player_name: playerName
+        difficulty
       });
 
-      setRoomId(response.room.id);
-      setRoomCode(newRoomCode);
+      setRoomId(response.roomId);
+      setRoomCode(response.roomCode);
       setIsHost(true);
-      toast.success(`Room ${newRoomCode} created!`);
+      toast.success(`Room ${response.roomCode} created!`);
     } catch (error: unknown) {
       console.error('Error creating room:', error);
       const message = error instanceof Error ? error.message : 'Failed to create room';
@@ -114,13 +111,22 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     setIsJoining(true);
 
     try {
-      const response = await apiClient.post('/api/game/rooms/join', {
-        room_code: roomCode,
-        player_name: playerName
+      // First, get the list of rooms to find the room by code
+      const roomsResponse = await apiClient.get('/api/game/rooms');
+      const room = roomsResponse.rooms.find((r: any) => r.room_code === roomCode);
+
+      if (!room) {
+        toast.error('Room not found');
+        return;
+      }
+
+      // Now join the room using the roomId
+      const joinResponse = await apiClient.post(`/api/game/rooms/${room.id}/join`, {
+        playerName
       });
 
-      setRoomId(response.room.id);
-      setDifficulty(response.room.difficulty as 'easy' | 'medium' | 'hard');
+      setRoomId(room.id);
+      setDifficulty(room.difficulty as 'easy' | 'medium' | 'hard');
       toast.success(`Joined room ${roomCode}!`);
     } catch (error: unknown) {
       console.error('Error joining room:', error);
@@ -134,13 +140,9 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
   const handleToggleReady = async () => {
     if (!roomId) return;
 
-    const currentPlayer = players.find(p => p.user_id === currentUserId);
-    if (!currentPlayer) return;
-
     try {
       await apiClient.patch(`/api/game/rooms/${roomId}/ready`, {
-        participant_id: currentPlayer.id,
-        is_ready: !isReady
+        isReady: !isReady
       });
       setIsReady(!isReady);
     } catch (error: unknown) {
@@ -165,7 +167,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     }
 
     try {
-      await apiClient.post(`/game/rooms/${roomId}/start`);
+      await apiClient.post(`/api/game/rooms/${roomId}/start`);
       setGameStarted(true);
     } catch (error: unknown) {
       console.error('Error starting game:', error);
