@@ -226,7 +226,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
             <Button
               onClick={handleStartGame}
               className="flex-1 rounded-xl"
-              disabled={players.length < 2}
+              disabled={!isReady || players.length < 2}
             >
               Start Game
             </Button>
