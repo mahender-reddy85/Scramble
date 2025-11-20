@@ -94,7 +94,7 @@ export default function WordScramble() {
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     
     // Check authentication status
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
 
     return () => {
