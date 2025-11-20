@@ -237,4 +237,77 @@ router.get('/rooms/:roomId', optionalAuth, async (req, res) => {
   }
 });
 
+// Get participants for a room
+router.get('/participants/:roomId', optionalAuth, async (req, res) => {
+  const { roomId } = req.params;
+
+  try {
+    const participants = await pool.query(`
+      SELECT gp.*, p.username, p.avatar_url
+      FROM game_participants gp
+      LEFT JOIN profiles p ON gp.user_id = p.id
+      WHERE gp.room_id = $1
+      ORDER BY gp.score DESC
+    `, [roomId]);
+
+    res.json(participants.rows);
+  } catch (error) {
+    console.error('Get participants error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update participant
+router.put('/participants/:participantId', authenticateToken, async (req, res) => {
+  const { participantId } = req.params;
+  const { score, current_streak } = req.body;
+
+  try {
+    await pool.query(
+      'UPDATE game_participants SET score = $1, current_streak = $2 WHERE id = $3',
+      [score, current_streak, participantId]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update participant error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Log game event
+router.post('/events', authenticateToken, async (req, res) => {
+  const { room_id, user_id, event_type, current_word, is_correct, points_earned } = req.body;
+
+  try {
+    await pool.query(
+      'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
+      [room_id, user_id, event_type, current_word, is_correct, points_earned]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Log event error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update room status
+router.patch('/rooms/:roomId', authenticateToken, async (req, res) => {
+  const { roomId } = req.params;
+  const { status, finished_at } = req.body;
+
+  try {
+    await pool.query(
+      'UPDATE game_rooms SET status = $1, finished_at = $2 WHERE id = $3',
+      [status, finished_at, roomId]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update room status error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;
