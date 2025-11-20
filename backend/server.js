@@ -42,9 +42,21 @@ io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('join-room', async (data) => {
-    const { roomId, userId, playerName } = data;
+    const { roomId, userId, playerName, token } = data;
+
+    // Verify token
+    if (!token) {
+      socket.emit('error', { message: 'No token provided' });
+      return;
+    }
 
     try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.id !== userId) {
+        socket.emit('error', { message: 'Invalid token' });
+        return;
+      }
+
       socket.join(roomId);
 
       // Get room info

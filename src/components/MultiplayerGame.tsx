@@ -88,7 +88,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
 
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
