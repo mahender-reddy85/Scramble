@@ -2,7 +2,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const apiClient = {
   post: async (endpoint: string, data: any) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -23,7 +23,7 @@ export const apiClient = {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
     });
 
@@ -39,7 +39,7 @@ export const apiClient = {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(data),
     });
@@ -56,7 +56,7 @@ export const apiClient = {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(data),
     });

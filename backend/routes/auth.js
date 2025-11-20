@@ -136,4 +136,57 @@ router.get('/me', async (req, res) => {
   }
 });
 
+// Update profile
+router.put('/profile', [
+  body('username').optional().isLength({ min: 3 }).trim(),
+  body('avatar_url').optional().isURL()
+], async (req, res) => {
+
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const authHeader = req.headers['authorization'];
+  const token = authHeader?.split(' ')[1];
+
+  if (!token) return res.status(401).json({ error: "No token provided" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { username, avatar_url } = req.body;
+
+    // Check if username is taken by another user
+    if (username) {
+      const existing = await pool.query(
+        'SELECT id FROM profiles WHERE username = $1 AND id != $2',
+        [username, decoded.id]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: 'Username already taken' });
+      }
+    }
+
+    // Update profile
+    await pool.query(
+      'UPDATE profiles SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url) WHERE id = $3',
+      [username, avatar_url, decoded.id]
+    );
+
+    // Also update users table if username changed
+    if (username) {
+      await pool.query(
+        'UPDATE users SET username = $1 WHERE id = $2',
+        [username, decoded.id]
+      );
+    }
+
+    return res.json({ message: 'Profile updated successfully' });
+
+  } catch (err) {
+    console.error("Profile update error:", err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;

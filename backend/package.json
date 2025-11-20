@@ -1,7 +1,7 @@
 {
   "name": "scramble-game-backend",
   "version": "1.0.0",
-  "description": "Backend for Scramble Game with MySQL and Socket.io",
+  "description": "Backend for Scramble Game with PostgreSQL and Socket.io",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -24,7 +24,7 @@
   "keywords": [
     "scramble",
     "game",
-    "mysql",
+    "postgresql",
     "socket.io",
     "express"
   ],
