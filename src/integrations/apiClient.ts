@@ -1,72 +1,67 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export const apiClient = {
-  post: async (endpoint: string, data: any) => {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
+  async get(url: string) {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_BASE_URL}${url}`, {
       headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error('API request failed');
-    }
-
-    return response.json();
-  },
-
-  get: async (endpoint: string) => {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
       },
     });
 
-    if (!response.ok) {
-      throw new Error('API request failed');
-    }
-
-    return response.json();
+    if (!res.ok) throw new Error("API request failed");
+    return res.json();
   },
 
-  patch: async (endpoint: string, data: any) => {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'PATCH',
+  async post(url: string, body: any) {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_BASE_URL}${url}`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      throw new Error('API request failed');
-    }
-
-    return response.json();
+    if (!res.ok) throw new Error("API request failed");
+    return res.json();
   },
 
-  put: async (endpoint: string, data: any) => {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'PUT',
+  async put(url: string, body: any) {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_BASE_URL}${url}`, {
+      method: "PUT",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      throw new Error('API request failed');
-    }
-
-    return response.json();
+    if (!res.ok) throw new Error("API request failed");
+    return res.json();
   },
+
+  async patch(url: string, body: any) {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_BASE_URL}${url}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) throw new Error("API request failed");
+    return res.json();
+  }
 };
 
 export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
