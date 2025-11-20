@@ -30,6 +30,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
   const [isHost, setIsHost] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [creatorName, setCreatorName] = useState<string>('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -48,19 +49,20 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
   useEffect(() => {
     if (!roomId) return;
 
-    const loadPlayers = async () => {
+    const loadRoomData = async () => {
       try {
         const response = await apiClient.get(`/api/game/rooms/${roomId}`);
         setPlayers(response.participants || []);
+        setCreatorName(response.room.creator_name || 'Unknown');
       } catch (error) {
-        console.error('Error loading players:', error);
+        console.error('Error loading room data:', error);
       }
     };
 
-    loadPlayers();
+    loadRoomData();
 
     // For now, we'll poll for updates since we don't have real-time
-    const interval = setInterval(loadPlayers, 2000);
+    const interval = setInterval(loadRoomData, 2000);
 
     return () => {
       clearInterval(interval);
@@ -155,7 +157,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
   const handleStartGame = async () => {
     if (!roomId || !isHost) return;
 
-    const allReady = players.every(p => p.is_ready || p.user_id === currentUserId);
+    const allReady = players.every(p => p.is_ready);
     if (!allReady) {
       toast.error('All players must be ready');
       return;
@@ -198,6 +200,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
       <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
         <div className="text-center space-y-2">
           <h2 className="text-3xl font-bold text-foreground">Room: {roomCode}</h2>
+          <p className="text-muted-foreground">Created by: {creatorName}</p>
           <p className="text-muted-foreground">Difficulty: {difficulty}</p>
         </div>
 
