@@ -25,12 +25,12 @@ export default function Auth() {
     try {
       if (isLogin) {
         const response = await apiClient.post('/api/auth/login', { email, password });
-        localStorage.setItem('auth_token', response.token);
+        localStorage.setItem('token', response.token);
         toast.success('Logged in successfully!');
         navigate('/');
       } else {
         const response = await apiClient.post('/api/auth/register', { email, password, username: email.split('@')[0] });
-        localStorage.setItem('auth_token', response.token);
+        localStorage.setItem('token', response.token);
         toast.success('Account created! You can now log in.');
         setIsLogin(true);
       }
