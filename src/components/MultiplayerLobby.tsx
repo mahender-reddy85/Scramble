@@ -50,7 +50,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
 
     const loadPlayers = async () => {
       try {
-        const response = await apiClient.get(`/game/rooms/${roomId}`);
+        const response = await apiClient.get(`/api/game/rooms/${roomId}`);
         setPlayers(response.participants || []);
       } catch (error) {
         console.error('Error loading players:', error);
@@ -81,7 +81,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     const newRoomCode = generateRoomCode();
 
     try {
-      const response = await apiClient.post('/game/rooms', {
+      const response = await apiClient.post('/api/game/rooms', {
         room_code: newRoomCode,
         difficulty,
         player_name: playerName
@@ -114,7 +114,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     setIsJoining(true);
 
     try {
-      const response = await apiClient.post('/game/rooms/join', {
+      const response = await apiClient.post('/api/game/rooms/join', {
         room_code: roomCode,
         player_name: playerName
       });
@@ -138,7 +138,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     if (!currentPlayer) return;
 
     try {
-      await apiClient.patch(`/game/rooms/${roomId}/ready`, {
+      await apiClient.patch(`/api/game/rooms/${roomId}/ready`, {
         participant_id: currentPlayer.id,
         is_ready: !isReady
       });

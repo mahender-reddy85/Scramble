@@ -150,7 +150,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
 
   const loadPlayers = useCallback(async () => {
     try {
-      const data = await apiClient.get(`/game/participants/${roomId}`);
+      const data = await apiClient.get(`/api/game/participants/${roomId}`);
       setPlayers(data || []);
     } catch (error) {
       console.error('Error loading players:', error);
@@ -164,7 +164,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     const newScore = currentPlayer.score + points;
 
     try {
-      await apiClient.put(`/game/participants/${currentPlayer.id}`, {
+      await apiClient.put(`/api/game/participants/${currentPlayer.id}`, {
         score: newScore,
         current_streak: newStreak
       });
@@ -182,7 +182,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       setWinner(topPlayer);
 
       try {
-        await apiClient.patch(`/game/rooms/${roomId}`, {
+        await apiClient.patch(`/api/game/rooms/${roomId}`, {
           status: 'finished',
           finished_at: new Date().toISOString()
         });
@@ -212,7 +212,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
 
     // Log event
     try {
-      await apiClient.post('/game/events', {
+      await apiClient.post('/api/game/events', {
         room_id: roomId,
         user_id: currentUserId,
         event_type: 'new_word',
@@ -271,7 +271,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
 
     // Log event
     try {
-      await apiClient.post('/game/events', {
+      await apiClient.post('/api/game/events', {
         room_id: roomId,
         user_id: currentUserId,
         event_type: 'answer',
