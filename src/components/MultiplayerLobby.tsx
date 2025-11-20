@@ -113,7 +113,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     try {
       // First, get the list of rooms to find the room by code
       const roomsResponse = await apiClient.get('/api/game/rooms');
-      const room = roomsResponse.rooms.find((r: any) => r.room_code === roomCode);
+      const room = roomsResponse.rooms.find((r: { room_code: string }) => r.room_code === roomCode);
 
       if (!room) {
         toast.error('Room not found');
@@ -312,7 +312,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
             type="text"
             value={roomCode}
             onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            placeholder="Enter 4-digit code"
+            placeholder="Enter 4-digit room code"
             className="rounded-xl"
             maxLength={4}
           />
