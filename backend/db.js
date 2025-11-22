@@ -1,6 +1,6 @@
 // db.js
-import pkg from 'pg';
-import dotenv from 'dotenv';
+const pkg = require('pg');
+const dotenv = require('dotenv');
 dotenv.config();
 
 const { Pool } = pkg;
@@ -10,4 +10,4 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-export default pool;
+module.exports = pool;
