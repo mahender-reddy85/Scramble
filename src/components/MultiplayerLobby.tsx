@@ -261,7 +261,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
               </div>
               <div className="flex items-center gap-2">
                 {player.is_ready && <span className="text-green-500">✓ Ready</span>}
-                {isHost && player.user_id !== currentUserId && (
+                {isHost && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -288,22 +288,21 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
         )}
 
         <div className="flex gap-3">
-          {isHost ? (
+          <Button
+            onClick={handleToggleReady}
+            variant={isReady ? 'secondary' : 'default'}
+            className="flex-1 rounded-xl"
+            disabled={countdown !== null}
+          >
+            {isReady ? 'Not Ready' : 'Ready'}
+          </Button>
+          {isHost && (
             <Button
               onClick={handleStartGame}
               className="flex-1 rounded-xl"
-              disabled={!isReady || players.length < 2 || countdown !== null}
+              disabled={players.length < 2 || !players.every(p => p.is_ready) || countdown !== null}
             >
               {countdown !== null ? `Starting in ${countdown}...` : 'Start Game'}
-            </Button>
-          ) : (
-            <Button
-              onClick={handleToggleReady}
-              variant={isReady ? 'secondary' : 'default'}
-              className="flex-1 rounded-xl"
-              disabled={countdown !== null}
-            >
-              {isReady ? 'Not Ready' : 'Ready'}
             </Button>
           )}
           <Button
