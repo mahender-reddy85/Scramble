@@ -302,7 +302,6 @@ router.post('/events', authenticateToken, async (req, res) => {
   }
 });
 
-// Update room status
 router.patch('/rooms/:roomId', authenticateToken, async (req, res) => {
   const { roomId } = req.params;
   const { status, finished_at } = req.body;
@@ -316,6 +315,50 @@ router.patch('/rooms/:roomId', authenticateToken, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Update room status error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Kick participant from room
+router.delete('/rooms/:roomId/participants/:participantId', authenticateToken, async (req, res) => {
+  const { roomId, participantId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Check if user is the room creator
+    const rooms = await pool.query(
+      'SELECT created_by FROM game_rooms WHERE id = $1',
+      [roomId]
+    );
+
+    if (rooms.rows.length === 0 || rooms.rows[0].created_by !== userId) {
+      return res.status(403).json({ error: 'Only room creator can kick players' });
+    }
+
+    // Check if participant exists in the room
+    const participants = await pool.query(
+      'SELECT user_id FROM game_participants WHERE id = $1 AND room_id = $2',
+      [participantId, roomId]
+    );
+
+    if (participants.rows.length === 0) {
+      return res.status(404).json({ error: 'Participant not found in this room' });
+    }
+
+    // Don't allow kicking yourself
+    if (participants.rows[0].user_id === userId) {
+      return res.status(400).json({ error: 'Cannot kick yourself' });
+    }
+
+    // Remove participant
+    await pool.query(
+      'DELETE FROM game_participants WHERE id = $1 AND room_id = $2',
+      [participantId, roomId]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Kick participant error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
