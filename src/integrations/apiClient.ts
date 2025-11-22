@@ -19,7 +19,7 @@ export const apiClient = {
     return res.json();
   },
 
-  async post(url: string, body: any) {
+  async post(url: string, body: Record<string, unknown>) {
     const token = localStorage.getItem("token");
 
     const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
