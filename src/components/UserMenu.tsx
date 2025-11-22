@@ -56,10 +56,6 @@ export default function UserMenu() {
     navigate('/auth');
   };
 
-  if (isLoading) {
-    return null; // Or a loading spinner
-  }
-
   const { theme, setTheme } = useTheme();
 
   const toggleTheme = () => {
@@ -71,6 +67,10 @@ export default function UserMenu() {
       setTheme('light');
     }
   };
+
+  if (isLoading) {
+    return null; // Or a loading spinner
+  }
 
   return (
     <div className="absolute top-4 right-4 z-50">
