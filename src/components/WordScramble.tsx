@@ -304,7 +304,8 @@ export default function WordScramble() {
   const isLowTime = timeLeft <= 5;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <UserMenu />
       <div className="flex items-center justify-center min-h-screen p-5">
         {showMultiplayerLobby ? (
           <MultiplayerLobby
