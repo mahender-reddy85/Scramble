@@ -83,5 +83,26 @@ export const apiClient = {
 
     if (!res.ok) throw new Error("API request failed");
     return res.json();
+  },
+
+  async delete(url: string) {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+    });
+
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/auth";
+      throw new Error("Unauthorized");
+    }
+
+    if (!res.ok) throw new Error("API request failed");
+    return res.json();
   }
 };
