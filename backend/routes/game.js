@@ -321,24 +321,4 @@ router.patch('/rooms/:roomId', authenticateToken, async (req, res) => {
   }
 });
 
-router.delete('/rooms/:roomId/participants/:participantId', authenticateToken, async (req, res) => {
-  const { roomId, participantId } = req.params;
-
-  try {
-    const result = await pool.query(
-      'DELETE FROM game_participants WHERE id = $1 AND room_id = $2',
-      [participantId, roomId]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Participant not found' });
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Kick participant error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
 export default router;

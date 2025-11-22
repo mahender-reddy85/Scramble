@@ -160,22 +160,6 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     }
   };
 
-  const handleKickPlayer = async (participantId: string, playerName: string) => {
-    if (!roomId || !isHost) return;
-
-    try {
-      await apiClient.delete(`/api/game/rooms/${roomId}/participants/${participantId}`);
-      toast.success(`${playerName} has been kicked from the room`);
-      // Refresh players list
-      const response = await apiClient.get(`/api/game/rooms/${roomId}`);
-      setPlayers(response.participants || []);
-    } catch (error: unknown) {
-      console.error('Error kicking player:', error);
-      const message = error instanceof Error ? error.message : 'Failed to kick player';
-      toast.error(message);
-    }
-  };
-
   const handleStartGame = async () => {
     if (!roomId || !isHost) return;
 
@@ -261,17 +245,6 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
               </div>
               <div className="flex items-center gap-2">
                 {player.is_ready && <span className="text-green-500">✓ Ready</span>}
-                {isHost && player.user_id !== currentUserId && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleKickPlayer(player.id, player.player_name)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                    title="Kick player"
-                  >
-                    ✕
-                  </Button>
-                )}
               </div>
             </div>
           ))}
