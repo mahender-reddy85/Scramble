@@ -7,9 +7,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { apiClient } from '@/integrations/apiClient';
 import { toast } from 'sonner';
+import { Moon, Sun } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 
 interface User {
   id: string;
@@ -57,6 +60,18 @@ export default function UserMenu() {
     return null; // Or a loading spinner
   }
 
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    if (theme === 'light') {
+      setTheme('dark');
+    } else if (theme === 'dark') {
+      setTheme('light');
+    } else {
+      setTheme('light');
+    }
+  };
+
   return (
     <div className="absolute top-4 right-4 z-50">
       {user ? (
@@ -76,6 +91,20 @@ export default function UserMenu() {
                 <p className="font-medium">{user.username}</p>
               </div>
             </div>
+            <DropdownMenuItem onClick={toggleTheme}>
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="mr-2 h-4 w-4" />
+                  <span>Light Mode</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="mr-2 h-4 w-4" />
+                  <span>Dark Mode</span>
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               Log out
             </DropdownMenuItem>

@@ -31,6 +31,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
   const [gameStarted, setGameStarted] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [creatorName, setCreatorName] = useState<string>('');
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -170,13 +171,30 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
 
     try {
       await apiClient.post(`/api/game/rooms/${roomId}/start`);
-      setGameStarted(true);
+      setCountdown(3);
     } catch (error: unknown) {
       console.error('Error starting game:', error);
       const message = error instanceof Error ? error.message : 'Failed to start game';
       toast.error(message);
     }
   };
+
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+
+    const timer = setTimeout(() => {
+      setCountdown(prev => (prev || 0) - 1);
+    }, 1000);
+
+    if (countdown === 1) {
+      setTimeout(() => {
+        setGameStarted(true);
+        setCountdown(null);
+      }, 1000);
+    }
+
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   if (gameStarted && roomId) {
     return (
@@ -190,6 +208,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
           setIsReady(false);
           setIsHost(false);
           setRoomCode('');
+          setCountdown(null);
         }}
       />
     );
@@ -224,20 +243,31 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
           ))}
         </div>
 
+        {/* Countdown Overlay */}
+        {countdown !== null && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="text-center">
+              <div className="text-8xl font-bold text-white mb-4">{countdown}</div>
+              <div className="text-2xl text-white/80">Get Ready!</div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3">
           {isHost ? (
             <Button
               onClick={handleStartGame}
               className="flex-1 rounded-xl"
-              disabled={!isReady || players.length < 2}
+              disabled={!isReady || players.length < 2 || countdown !== null}
             >
-              Start Game
+              {countdown !== null ? `Starting in ${countdown}...` : 'Start Game'}
             </Button>
           ) : (
             <Button
               onClick={handleToggleReady}
               variant={isReady ? 'secondary' : 'default'}
               className="flex-1 rounded-xl"
+              disabled={countdown !== null}
             >
               {isReady ? 'Not Ready' : 'Ready'}
             </Button>
@@ -249,9 +279,11 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
               setIsReady(false);
               setIsHost(false);
               setRoomCode('');
+              setCountdown(null);
             }}
             variant="outline"
             className="flex-1 rounded-xl"
+            disabled={countdown !== null}
           >
             Leave Room
           </Button>
