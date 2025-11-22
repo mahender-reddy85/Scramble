@@ -159,7 +159,7 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
 
     // Check if all players are ready
     const participants = await pool.query(
-      'SELECT COUNT(*) as total, SUM(is_ready) as ready FROM game_participants WHERE room_id = $1',
+      'SELECT COUNT(*) AS total, SUM(is_ready::int) AS ready FROM game_participants WHERE room_id = $1',
       [roomId]
     );
 
@@ -319,42 +319,18 @@ router.patch('/rooms/:roomId', authenticateToken, async (req, res) => {
   }
 });
 
-// Kick participant from room
 router.delete('/rooms/:roomId/participants/:participantId', authenticateToken, async (req, res) => {
   const { roomId, participantId } = req.params;
-  const userId = req.user.id;
 
   try {
-    // Check if user is the room creator
-    const rooms = await pool.query(
-      'SELECT created_by FROM game_rooms WHERE id = $1',
-      [roomId]
-    );
-
-    if (rooms.rows.length === 0 || rooms.rows[0].created_by !== userId) {
-      return res.status(403).json({ error: 'Only room creator can kick players' });
-    }
-
-    // Check if participant exists in the room
-    const participants = await pool.query(
-      'SELECT user_id FROM game_participants WHERE id = $1 AND room_id = $2',
-      [participantId, roomId]
-    );
-
-    if (participants.rows.length === 0) {
-      return res.status(404).json({ error: 'Participant not found in this room' });
-    }
-
-    // Don't allow kicking yourself
-    if (participants.rows[0].user_id === userId) {
-      return res.status(400).json({ error: 'Cannot kick yourself' });
-    }
-
-    // Remove participant
-    await pool.query(
+    const result = await pool.query(
       'DELETE FROM game_participants WHERE id = $1 AND room_id = $2',
       [participantId, roomId]
     );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
 
     res.json({ success: true });
   } catch (error) {
