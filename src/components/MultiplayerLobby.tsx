@@ -87,6 +87,11 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
         difficulty
       });
 
+      // Join the room as the creator
+      await apiClient.post(`/api/game/rooms/${response.roomId}/join`, {
+        playerName
+      });
+
       setRoomId(response.roomId);
       setRoomCode(response.roomCode);
       setIsHost(true);
@@ -151,6 +156,22 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     } catch (error: unknown) {
       console.error('Error updating ready status:', error);
       const message = error instanceof Error ? error.message : 'Failed to update ready status';
+      toast.error(message);
+    }
+  };
+
+  const handleKickPlayer = async (participantId: string, playerName: string) => {
+    if (!roomId || !isHost) return;
+
+    try {
+      await apiClient.delete(`/api/game/rooms/${roomId}/participants/${participantId}`);
+      toast.success(`${playerName} has been kicked from the room`);
+      // Refresh players list
+      const response = await apiClient.get(`/api/game/rooms/${roomId}`);
+      setPlayers(response.participants || []);
+    } catch (error: unknown) {
+      console.error('Error kicking player:', error);
+      const message = error instanceof Error ? error.message : 'Failed to kick player';
       toast.error(message);
     }
   };
@@ -226,11 +247,11 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
         <div className="space-y-3">
           <h3 className="font-semibold text-foreground">Players ({players.length})</h3>
           {players.map((player) => (
-            <div 
+            <div
               key={player.id}
               className={`flex justify-between items-center p-4 rounded-xl border ${
-                player.user_id === currentUserId 
-                  ? 'bg-primary/10 border-primary' 
+                player.user_id === currentUserId
+                  ? 'bg-primary/10 border-primary'
                   : 'bg-muted border-border'
               }`}
             >
@@ -238,7 +259,20 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
                 <span className="font-semibold text-foreground">{player.player_name}</span>
                 {player.user_id === currentUserId && <span className="text-xs text-muted-foreground">(You)</span>}
               </div>
-              {player.is_ready && <span className="text-green-500">✓ Ready</span>}
+              <div className="flex items-center gap-2">
+                {player.is_ready && <span className="text-green-500">✓ Ready</span>}
+                {isHost && player.user_id !== currentUserId && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleKickPlayer(player.id, player.player_name)}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    title="Kick player"
+                  >
+                    ✕
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>
