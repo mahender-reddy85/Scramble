@@ -261,7 +261,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
               </div>
               <div className="flex items-center gap-2">
                 {player.is_ready && <span className="text-green-500">✓ Ready</span>}
-                {isHost && (
+                {isHost && player.user_id !== currentUserId && (
                   <Button
                     variant="ghost"
                     size="sm"

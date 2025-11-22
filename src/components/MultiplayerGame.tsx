@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { apiClient, SOCKET_URL } from '@/integrations/apiClient';
-import { useNavigate } from 'react-router-dom';
+import { apiClient } from '@/integrations/apiClient';
+
 
 interface WordItem {
   word: string;
@@ -64,7 +64,6 @@ interface MultiplayerGameProps {
 }
 
 export default function MultiplayerGame({ roomId, difficulty, onExit }: MultiplayerGameProps) {
-  const navigate = useNavigate();
   const [currentWord, setCurrentWord] = useState('');
   const [scrambledWord, setScrambledWord] = useState('');
   const [currentHint, setCurrentHint] = useState('');
@@ -299,7 +298,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
 
     // Log event
     try {
-      await apiClient.post('/game/events', {
+      await apiClient.post('/api/game/events', {
         room_id: roomId,
         user_id: currentUserId,
         event_type: 'answer',
@@ -393,6 +392,13 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
 
     // Start first round
     setTimeout(() => loadNewWord(), 1000);
+
+    // Poll for player updates every 2 seconds
+    const interval = setInterval(() => {
+      loadPlayers();
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, [roomId, loadPlayers, loadNewWord]);
 
   const timerPercentage = (timeLeft / 15) * 100;
