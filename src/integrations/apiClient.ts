@@ -9,6 +9,12 @@ export const apiClient = {
       },
     });
 
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/auth";
+      throw new Error("Unauthorized");
+    }
+
     if (!res.ok) throw new Error("API request failed");
     return res.json();
   },
@@ -24,6 +30,12 @@ export const apiClient = {
       },
       body: JSON.stringify(body),
     });
+
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/auth";
+      throw new Error("Unauthorized");
+    }
 
     if (!res.ok) throw new Error("API request failed");
     return res.json();
@@ -41,6 +53,12 @@ export const apiClient = {
       body: JSON.stringify(body),
     });
 
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/auth";
+      throw new Error("Unauthorized");
+    }
+
     if (!res.ok) throw new Error("API request failed");
     return res.json();
   },
@@ -56,6 +74,12 @@ export const apiClient = {
       },
       body: JSON.stringify(body),
     });
+
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/auth";
+      throw new Error("Unauthorized");
+    }
 
     if (!res.ok) throw new Error("API request failed");
     return res.json();
