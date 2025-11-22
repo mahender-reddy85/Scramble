@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import MultiplayerLobby from './MultiplayerLobby';
+import UserMenu from './UserMenu';
 import { useNavigate } from 'react-router-dom';
 
 interface WordItem {
