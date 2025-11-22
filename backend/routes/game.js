@@ -88,6 +88,16 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Room not found or not available' });
     }
 
+    // Check current participant count
+    const participantCount = await pool.query(
+      'SELECT COUNT(*) as count FROM game_participants WHERE room_id = $1',
+      [roomId]
+    );
+
+    if (participantCount.rows[0].count >= 2) {
+      return res.status(400).json({ error: 'Room is full' });
+    }
+
     // Check if user is already in the room
     const existing = await pool.query(
       'SELECT id FROM game_participants WHERE room_id = $1 AND user_id = $2',
