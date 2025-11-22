@@ -160,13 +160,13 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
     // Check if all players are ready
     const participants = await pool.query(`
       SELECT COUNT(*)::int AS total,
-             COALESCE(SUM(is_ready::int), 0)::int AS ready
+             COALESCE(SUM(CASE WHEN is_ready IS TRUE THEN 1 ELSE 0 END), 0)::int AS ready
       FROM game_participants
       WHERE room_id = $1
     `, [roomId]);
 
-    if (participants.rows[0].total !== participants.rows[0].ready) {
-      return res.status(400).json({ error: 'All players must be ready' });
+    if (participants.rows[0].total !== participants.rows[0].ready || participants.rows[0].total === 0) {
+      return res.status(400).json({ error: 'All players must be ready and at least 2 players required' });
     }
 
     // Start game
