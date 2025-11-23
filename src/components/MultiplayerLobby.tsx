@@ -149,7 +149,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
     try {
       const roomsResponse = await apiClient.get('/api/game/rooms');
-      const room = roomsResponse.data.rooms.find((r: { room_code: string }) => r.room_code === roomCode);
+      const room = roomsResponse.rooms.find((r) => r.room_code === roomCode);
 
       if (!room) {
         toast.error('Room not found');
