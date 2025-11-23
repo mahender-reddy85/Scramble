@@ -3,6 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 import authRoutes from './routes/auth.js';
 import gameRoutes from './routes/game.js';
 import pool from './db.js';
@@ -75,7 +76,7 @@ io.on('connection', (socket) => {
 
       // Get participants
       const participants = await pool.query(`
-        SELECT gp.*, p.username
+        SELECT gp.*, p.username as player_name
         FROM game_participants gp
         LEFT JOIN profiles p ON gp.user_id = p.id
         WHERE gp.room_id = $1
@@ -93,6 +94,15 @@ io.on('connection', (socket) => {
         playerName,
         participants: participants.rows
       });
+
+      // Check if game is active and sync current state
+      if (roomData.rows[0].status === 'active') {
+        const currentRound = await pool.query('SELECT current_round FROM game_rooms WHERE id = $1', [roomId]);
+        socket.emit('game-sync', {
+          currentRound: currentRound.rows[0]?.current_round || 0,
+          participants: participants.rows
+        });
+      }
 
     } catch (error) {
       console.error('Join room error:', error);
