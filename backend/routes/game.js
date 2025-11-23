@@ -290,12 +290,14 @@ router.put('/participants/:participantId', authenticateToken, async (req, res) =
 // Log game event
 router.post('/events', authenticateToken, async (req, res) => {
   const { room_id, user_id, current_word, is_correct, points_earned } = req.body;
-  const event_type = "answer_submitted"; // default
+  const event_type = "answer_submitted";
+  const eventId = `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   try {
     await pool.query(
-      'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
-      [room_id, user_id, event_type, current_word, is_correct, points_earned]
+      `INSERT INTO game_events (id, room_id, user_id, event_type, current_word, is_correct, points_earned)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [eventId, room_id, user_id, event_type, current_word, is_correct, points_earned]
     );
 
     res.json({ success: true });
