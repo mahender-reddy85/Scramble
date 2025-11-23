@@ -14,7 +14,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:8080", // Vite dev server
+    origin: ["http://localhost:8080", "https://scramble-eta.vercel.app"], // Vite dev server and Vercel production
     methods: ["GET", "POST"]
   }
 });
