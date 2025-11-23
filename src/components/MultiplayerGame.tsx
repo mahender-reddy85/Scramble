@@ -67,8 +67,11 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
   const [currentWord, setCurrentWord] = useState('');
   const [scrambledWord, setScrambledWord] = useState('');
   const [currentHint, setCurrentHint] = useState('');
-  const [timeLeft, setTimeLeft] = useState(15);
+  const [timeLeft, setTimeLeft] = useState(20);
   const [isActive, setIsActive] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
   const [showHint, setShowHint] = useState(false);
@@ -205,8 +208,10 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     setCurrentHint(wordItem.hint);
     setAnswer('');
     setFeedback({ message: '', type: '' });
-    setTimeLeft(15);
-    setIsActive(true);
+    setTimeLeft(20);
+    setShowCountdown(true);
+    setCountdown(3);
+    setIsActive(false);
     setShowHint(false);
     setHintUsed(false);
     setRoundCount(prev => prev + 1);
@@ -218,6 +223,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       await apiClient.post('/api/game/events', {
         room_id: roomId,
         user_id: currentUserId,
+        event_type: 'new_word',
         current_word: wordItem.word
       });
       isSendingNewWordEventRef.current = false;
@@ -227,9 +233,28 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       isSendingNewWordEventRef.current = false;
       return;
     }
+  }, [difficulty, roomId, currentUserId, roundCount, players, maxRounds, scrambleWord]);
 
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, [difficulty, roomId, currentUserId, roundCount, players, maxRounds, scrambleWord, inputRef]);
+  // Countdown effect
+  useEffect(() => {
+    let countdownInterval: NodeJS.Timeout;
+    if (showCountdown && countdown > 0) {
+      countdownInterval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            setShowCountdown(false);
+            setIsActive(true);
+            setTimeLeft(20);
+            inputRef.current?.focus();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(countdownInterval);
+  }, [showCountdown, countdown]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
