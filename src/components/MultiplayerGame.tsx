@@ -276,7 +276,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       updatePlayerScore(0, 0);
     }
     
-    setTimeout(() => loadNewWord(), 2000);
+    setTimeout(() => loadNewWord(), 3000);
   }, [currentWord, stopTimer, loadNewWord, currentUserId, players, updatePlayerScore]);
 
   const getBasePoints = useCallback(() => {
@@ -320,7 +320,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       return;
     }
     
-    setTimeout(() => loadNewWord(), 1500);
+    setTimeout(() => loadNewWord(), 2500);
   }, [stopTimer, getBasePoints, timeLeft, loadNewWord, playSound, currentUserId, players, updatePlayerScore, roomId, currentWord]);
 
   const handleWrongAnswer = useCallback(async () => {
@@ -356,7 +356,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     setTimeout(() => {
       setFeedback({ message: '', type: '' });
       inputRef.current?.focus();
-    }, 2000);
+    }, 2500);
   }, [playSound, currentUserId, players, updatePlayerScore, roomId, currentWord]);
 
   const checkAnswer = useCallback(() => {
@@ -444,7 +444,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     return () => clearInterval(interval);
   }, [roomId, loadPlayers, loadNewWord]);
 
-  const timerPercentage = (timeLeft / 15) * 100;
+  const timerPercentage = (timeLeft / 20) * 100;
   const isLowTime = timeLeft <= 5;
 
   const currentPlayer = players.find(p => p.user_id === currentUserId);
@@ -532,67 +532,81 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
           ))}
         </div>
 
-        {/* Timer */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Time Remaining</span>
-            <span className={`font-semibold ${isLowTime ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
-              {timeLeft}s
-            </span>
+        {showCountdown ? (
+          /* Countdown Display */
+          <div className="flex flex-col items-center justify-center space-y-4 p-8">
+            <div className="text-6xl font-bold text-primary animate-bounce">
+              {countdown}
+            </div>
+            <p className="text-xl text-muted-foreground">Get Ready!</p>
           </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 rounded-full ${
-                isLowTime ? 'bg-destructive' : 'bg-primary'
-              }`}
-              style={{ width: `${timerPercentage}%` }}
-            />
-          </div>
-        </div>
+        ) : (
+          <>
+            {/* Timer */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Time Remaining</span>
+                <span className={`font-semibold ${isLowTime ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
+                  {timeLeft}s
+                </span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 rounded-full ${
+                    isLowTime ? 'bg-destructive' : 'bg-primary'
+                  }`}
+                  style={{ width: `${timerPercentage}%` }}
+                />
+              </div>
+            </div>
 
-        {/* Word Display */}
-        <div className="bg-muted rounded-xl border border-border p-8 text-center space-y-3">
-          <div className="text-5xl font-bold text-foreground tracking-widest">
-            {scrambledWord}
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            {showHint && (
-              <div className="text-sm text-muted-foreground italic">{currentHint}</div>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleHint}
-              className="rounded-full"
-              title="Show hint (costs points)"
-            >
-              💡
-            </Button>
-          </div>
-        </div>
+            {/* Word Display */}
+            <div className="bg-muted rounded-xl border border-border p-8 text-center space-y-3">
+              <div className="text-5xl font-bold text-foreground tracking-widest">
+                {scrambledWord}
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                {showHint && (
+                  <div className="text-sm text-muted-foreground italic">{currentHint}</div>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleHint}
+                  className="rounded-full"
+                  title="Show hint (costs points)"
+                  disabled={!isActive}
+                >
+                  💡
+                </Button>
+              </div>
+            </div>
 
-        {/* Input Section */}
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              type="text"
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your answer..."
-              className="flex-1 rounded-xl text-lg"
-              autoComplete="off"
-            />
-            <Button
-              onClick={checkAnswer}
-              disabled={!isActive}
-              className="px-6 rounded-xl font-semibold"
-            >
-              Submit
-            </Button>
-          </div>
-        </div>
+            {/* Input Section */}
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your answer..."
+                  className="flex-1 rounded-xl text-lg"
+                  autoComplete="off"
+                  disabled={!isActive}
+                />
+                <Button
+                  onClick={checkAnswer}
+                  disabled={!isActive}
+                  className="px-6 rounded-xl font-semibold"
+                >
+                  Submit
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Feedback */}
         {feedback.message && (
