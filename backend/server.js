@@ -263,6 +263,34 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('toggle-ready', async (data) => {
+    const { roomId, userId, is_ready } = data;
+
+    try {
+      // Update ready status in database
+      await pool.query(
+        'UPDATE game_participants SET is_ready = $1 WHERE room_id = $2 AND user_id = $3',
+        [is_ready, roomId, userId]
+      );
+
+      // Get updated participants
+      const participants = await pool.query(`
+        SELECT gp.*, p.username as player_name
+        FROM game_participants gp
+        LEFT JOIN profiles p ON gp.user_id = p.id
+        WHERE gp.room_id = $1
+        ORDER BY gp.joined_at
+      `, [roomId]);
+
+      // Notify all players in room
+      io.to(roomId).emit('participantsUpdated', participants.rows);
+
+    } catch (error) {
+      console.error('Toggle ready error:', error);
+      socket.emit('error', { message: 'Failed to update ready status' });
+    }
+  });
+
   socket.on('leave-room', (data) => {
     const { roomId, userId } = data;
     socket.leave(roomId);
