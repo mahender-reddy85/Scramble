@@ -41,7 +41,7 @@ export const apiClient = {
     return res.json();
   },
 
-  async put(url: string, body: any) {
+  async put(url: string, body: Record<string, unknown>) {
     const token = localStorage.getItem("token");
 
     const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
@@ -63,7 +63,7 @@ export const apiClient = {
     return res.json();
   },
 
-  async patch(url: string, body: any) {
+  async patch(url: string, body: Record<string, unknown>) {
     const token = localStorage.getItem("token");
 
     const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
