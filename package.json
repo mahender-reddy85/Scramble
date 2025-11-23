@@ -90,7 +90,7 @@
     "game",
     "react",
     "typescript",
-    "mysql"
+    "postgresql"
   ],
   "author": "",
   "license": "ISC"
