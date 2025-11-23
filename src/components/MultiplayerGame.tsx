@@ -115,7 +115,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
   useEffect(() => {
     if (!currentUserId) return;
 
-    socketRef.current = io('http://localhost:3001', {
+    socketRef.current = io('https://scramble-hax5.onrender.com', {
       query: { roomId, userId: currentUserId }
     });
 
