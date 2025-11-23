@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { apiClient } from '@/integrations/apiClient';
+import io from 'socket.io-client';
 import MultiplayerGame from './MultiplayerGame';
 
 interface MultiplayerLobbyProps {
-  onStartGame: (roomId: string) => void;
   onBack: () => void;
 }
 
@@ -18,7 +18,7 @@ interface Player {
   user_id: string;
 }
 
-export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLobbyProps) {
+export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [roomCode, setRoomCode] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -32,11 +32,11 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [creatorName, setCreatorName] = useState<string>('');
   const [countdown, setCountdown] = useState<number | null>(null);
+  const socketRef = useRef<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Decode token to get user ID (simplified)
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setCurrentUserId(payload.id || payload.user?.id || 'anonymous');
@@ -48,13 +48,46 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
   }, []);
 
   useEffect(() => {
+    if (!roomId || !currentUserId) return;
+
+    socketRef.current = io('https://scramble-hax5.onrender.com', {
+      query: { roomId, userId: currentUserId }
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Connected to socket in lobby');
+    });
+
+    socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
+      setPlayers(updatedPlayers);
+    });
+
+    socketRef.current.on('countdown', (data: { countdown: number }) => {
+      setCountdown(data.countdown);
+    });
+
+    socketRef.current.on('newWord', () => {
+      setGameStarted(true);
+      setCountdown(null);
+    });
+
+    socketRef.current.on('participant-joined', (data: { participants: Player[] }) => {
+      setPlayers(data.participants);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, [roomId, currentUserId]);
+
+  useEffect(() => {
     if (!roomId) return;
 
     const loadRoomData = async () => {
       try {
         const response = await apiClient.get(`/api/game/rooms/${roomId}`);
-        setPlayers(response.participants || []);
-        setCreatorName(response.room.creator_name || 'Unknown');
+        setPlayers(response.data.participants || []);
+        setCreatorName(response.data.room.creator_name || 'Unknown');
       } catch (error) {
         console.error('Error loading room data:', error);
       }
@@ -62,17 +95,12 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
 
     loadRoomData();
 
-    // For now, we'll poll for updates since we don't have real-time
     const interval = setInterval(loadRoomData, 2000);
 
     return () => {
       clearInterval(interval);
     };
   }, [roomId]);
-
-  const generateRoomCode = () => {
-    return Math.floor(1000 + Math.random() * 9000).toString();
-  };
 
   const handleCreateRoom = async () => {
     if (!playerName.trim()) {
@@ -87,15 +115,16 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
         difficulty
       });
 
-      // Join the room as the creator
-      await apiClient.post(`/api/game/rooms/${response.roomId}/join`, {
+      const { roomId, roomCode } = response.data;
+
+      await apiClient.post(`/api/game/rooms/${roomId}/join`, {
         playerName
       });
 
-      setRoomId(response.roomId);
-      setRoomCode(response.roomCode);
+      setRoomId(roomId);
+      setRoomCode(roomCode);
       setIsHost(true);
-      toast.success(`Room ${response.roomCode} created!`);
+      toast.success(`Room ${roomCode} created!`);
     } catch (error: unknown) {
       console.error('Error creating room:', error);
       const message = error instanceof Error ? error.message : 'Failed to create room';
@@ -119,17 +148,15 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
     setIsJoining(true);
 
     try {
-      // First, get the list of rooms to find the room by code
       const roomsResponse = await apiClient.get('/api/game/rooms');
-      const room = roomsResponse.rooms.find((r: { room_code: string }) => r.room_code === roomCode);
+      const room = roomsResponse.data.rooms.find((r: { room_code: string }) => r.room_code === roomCode);
 
       if (!room) {
         toast.error('Room not found');
         return;
       }
 
-      // Now join the room using the roomId
-      const joinResponse = await apiClient.post(`/api/game/rooms/${room.id}/join`, {
+      await apiClient.post(`/api/game/rooms/${room.id}/join`, {
         playerName
       });
 
@@ -153,6 +180,11 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
         isReady: !isReady
       });
       setIsReady(!isReady);
+
+      // Emit to socket for real-time update
+      if (socketRef.current) {
+        socketRef.current.emit('toggle-ready', { roomId, userId: currentUserId, isReady: !isReady });
+      }
     } catch (error: unknown) {
       console.error('Error updating ready status:', error);
       const message = error instanceof Error ? error.message : 'Failed to update ready status';
@@ -176,30 +208,19 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
 
     try {
       await apiClient.post(`/api/game/rooms/${roomId}/start`);
-      setCountdown(3);
+
+      // Emit socket event to start game
+      if (socketRef.current) {
+        socketRef.current.emit('start-game', { roomId });
+      }
+
+      toast.success('Game starting...');
     } catch (error: unknown) {
       console.error('Error starting game:', error);
       const message = error instanceof Error ? error.message : 'Failed to start game';
       toast.error(message);
     }
   };
-
-  useEffect(() => {
-    if (countdown === null || countdown <= 0) return;
-
-    const timer = setTimeout(() => {
-      setCountdown(prev => (prev || 0) - 1);
-    }, 1000);
-
-    if (countdown === 1) {
-      setTimeout(() => {
-        setGameStarted(true);
-        setCountdown(null);
-      }, 1000);
-    }
-
-    return () => clearTimeout(timer);
-  }, [countdown]);
 
   if (gameStarted && roomId) {
     return (
@@ -251,7 +272,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
         </div>
 
         {/* Countdown Overlay */}
-        {countdown !== null && (
+        {countdown !== null && countdown > 0 && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="text-center">
               <div className="text-8xl font-bold text-white mb-4">{countdown}</div>
@@ -265,7 +286,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
             onClick={handleToggleReady}
             variant={isReady ? 'secondary' : 'default'}
             className="flex-1 rounded-xl"
-            disabled={countdown !== null}
+            disabled={countdown !== null && countdown > 0}
           >
             {isReady ? 'Not Ready' : 'Ready'}
           </Button>
@@ -273,9 +294,9 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
             <Button
               onClick={handleStartGame}
               className="flex-1 rounded-xl"
-              disabled={players.length < 2 || !players.every(p => p.is_ready) || countdown !== null}
+              disabled={players.length < 2 || !players.every(p => p.is_ready) || countdown !== null && countdown > 0}
             >
-              {countdown !== null ? `Starting in ${countdown}...` : 'Start Game'}
+              Start Game
             </Button>
           )}
           <Button
@@ -289,7 +310,7 @@ export default function MultiplayerLobby({ onStartGame, onBack }: MultiplayerLob
             }}
             variant="outline"
             className="flex-1 rounded-xl"
-            disabled={countdown !== null}
+            disabled={countdown !== null && countdown > 0}
           >
             Leave Room
           </Button>

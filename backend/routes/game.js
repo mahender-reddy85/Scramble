@@ -4,6 +4,56 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Get words by difficulty
+router.get('/words/:difficulty', async (req, res) => {
+  const { difficulty } = req.params;
+
+  const wordBanks = {
+    easy: [
+      { word: 'APPLE', hint: 'A common fruit' },
+      { word: 'HOUSE', hint: 'A place to live' },
+      { word: 'WATER', hint: 'Essential for life' },
+      { word: 'MUSIC', hint: 'Sound that entertains' },
+      { word: 'LIGHT', hint: 'Opposite of dark' },
+      { word: 'HAPPY', hint: 'A positive emotion' },
+      { word: 'PHONE', hint: 'Communication device' },
+      { word: 'CHAIR', hint: 'Furniture to sit on' },
+      { word: 'PAPER', hint: 'Used for writing' },
+      { word: 'CLOUD', hint: 'Floats in the sky' },
+    ],
+    medium: [
+      { word: 'BUTTERFLY', hint: 'Colorful insect' },
+      { word: 'COMPUTER', hint: 'Electronic device' },
+      { word: 'MOUNTAIN', hint: 'High landform' },
+      { word: 'HOSPITAL', hint: 'Medical facility' },
+      { word: 'ELEPHANT', hint: 'Large mammal' },
+      { word: 'CALENDAR', hint: 'Tracks dates' },
+      { word: 'QUESTION', hint: 'Seeks an answer' },
+      { word: 'TREASURE', hint: 'Valuable items' },
+      { word: 'KEYBOARD', hint: 'Input device' },
+      { word: 'LANGUAGE', hint: 'Form of communication' },
+    ],
+    hard: [
+      { word: 'ACHIEVEMENT', hint: 'Accomplishment' },
+      { word: 'PSYCHOLOGY', hint: 'Study of mind' },
+      { word: 'PHILOSOPHY', hint: 'Study of wisdom' },
+      { word: 'ATMOSPHERE', hint: 'Layer of gases' },
+      { word: 'TECHNOLOGY', hint: 'Modern innovation' },
+      { word: 'INCREDIBLE', hint: 'Hard to believe' },
+      { word: 'THROUGHOUT', hint: 'From start to end' },
+      { word: 'VOCABULARY', hint: 'Collection of words' },
+      { word: 'MYSTERIOUS', hint: 'Full of mystery' },
+      { word: 'BENEFICIAL', hint: 'Providing advantage' },
+    ]
+  };
+
+  if (!wordBanks[difficulty]) {
+    return res.status(400).json({ error: 'Invalid difficulty' });
+  }
+
+  res.json({ words: wordBanks[difficulty] });
+});
+
 // Get leaderboard
 router.get('/leaderboard', async (req, res) => {
   try {
