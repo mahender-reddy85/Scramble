@@ -83,6 +83,8 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const isSendingNewWordEventRef = useRef(false);
+  const isSendingAnswerEventRef = useRef(false);
 
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -210,15 +212,20 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     setRoundCount(prev => prev + 1);
 
     // Log event
+    if (isSendingNewWordEventRef.current) return;
+    isSendingNewWordEventRef.current = true;
     try {
       await apiClient.post('/api/game/events', {
         room_id: roomId,
         user_id: currentUserId,
-        event_type: 'new_word',
         current_word: wordItem.word
       });
+      isSendingNewWordEventRef.current = false;
     } catch (error) {
       console.error('Error logging event:', error);
+      console.error("Event send failed once, stopping retries");
+      isSendingNewWordEventRef.current = false;
+      return;
     }
 
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -269,6 +276,8 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     setFeedback({ message: `Correct! +${totalPoints} points`, type: 'success' });
 
     // Log event
+    if (isSendingAnswerEventRef.current) return;
+    isSendingAnswerEventRef.current = true;
     try {
       await apiClient.post('/api/game/events', {
         room_id: roomId,
@@ -278,8 +287,12 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
         is_correct: true,
         points_earned: totalPoints
       });
+      isSendingAnswerEventRef.current = false;
     } catch (error) {
       console.error('Error logging event:', error);
+      console.error("Event send failed once, stopping retries");
+      isSendingAnswerEventRef.current = false;
+      return;
     }
     
     setTimeout(() => loadNewWord(), 1500);
@@ -297,17 +310,22 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     setAnswer('');
 
     // Log event
+    if (isSendingAnswerEventRef.current) return;
+    isSendingAnswerEventRef.current = true;
     try {
       await apiClient.post('/api/game/events', {
         room_id: roomId,
         user_id: currentUserId,
-        event_type: 'answer',
         current_word: currentWord,
         is_correct: false,
         points_earned: 0
       });
+      isSendingAnswerEventRef.current = false;
     } catch (error) {
       console.error('Error logging event:', error);
+      console.error("Event send failed once, stopping retries");
+      isSendingAnswerEventRef.current = false;
+      return;
     }
 
     setTimeout(() => {
