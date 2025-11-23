@@ -68,6 +68,8 @@ const io = new Server(server, {
   }
 });
 
+app.set('io', io);
+
 app.use(cors());
 app.use(express.json());
 
@@ -159,27 +161,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('start-game', async (data) => {
-    const { roomId } = data;
 
-    try {
-      // Update room status
-      await pool.query(
-        'UPDATE game_rooms SET status = $1, started_at = NOW() WHERE id = $2',
-        ['active', roomId]
-      );
-
-      // Notify all players in room
-      io.to(roomId).emit('game-started', {
-        message: 'Game has started!',
-        timestamp: new Date()
-      });
-
-    } catch (error) {
-      console.error('Start game error:', error);
-      socket.emit('error', { message: 'Failed to start game' });
-    }
-  });
 
   socket.on('submit-answer', async (data) => {
     const { roomId, userId, word, isCorrect, points } = data;
