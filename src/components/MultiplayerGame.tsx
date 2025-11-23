@@ -222,7 +222,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     setIsActive(false);
     setShowHint(false);
     setHintUsed(false);
-    setRoundCount(prev => prev + 1);
+    setRoundCount(prev => Math.min(prev + 1, maxRounds));
 
     // Log event
     if (isSendingNewWordEventRef.current) return;
