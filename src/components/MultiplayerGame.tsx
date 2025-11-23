@@ -172,6 +172,8 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
         score: newScore,
         current_streak: newStreak
       });
+      // Update local state immediately after backend update
+      setPlayers(prev => prev.map(p => p.id === currentPlayer.id ? { ...p, score: newScore, current_streak: newStreak } : p));
     } catch (error) {
       console.error('Error updating score:', error);
     }
@@ -180,13 +182,16 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
   const loadNewWord = useCallback(async () => {
     if (roundCount >= maxRounds) {
       // Load latest player data before determining winner
-      await loadPlayers();
+      const freshData = await apiClient.get(`/api/game/participants/${roomId}`);
+      setPlayers(freshData || []);
 
       setGameEnded(true);
-      const topPlayer = players.reduce((prev, current) =>
-        (current.score > prev.score) ? current : prev
-      );
-      setWinner(topPlayer);
+      if (freshData && freshData.length > 0) {
+        const topPlayer = freshData.reduce((prev, current) =>
+          (current.score > prev.score) ? current : prev
+        );
+        setWinner(topPlayer);
+      }
 
       try {
         await apiClient.patch(`/api/game/rooms/${roomId}`, {
@@ -236,7 +241,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       isSendingNewWordEventRef.current = false;
       return;
     }
-  }, [difficulty, roomId, currentUserId, roundCount, players, maxRounds, scrambleWord]);
+  }, [difficulty, roomId, currentUserId, roundCount, maxRounds, scrambleWord]);
 
   // Countdown effect
   useEffect(() => {
