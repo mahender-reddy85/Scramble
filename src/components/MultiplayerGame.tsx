@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { apiClient } from '@/integrations/apiClient';
+import io from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 
 
 interface WordItem {
@@ -88,6 +90,8 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
   const audioContextRef = useRef<AudioContext | null>(null);
   const isSendingNewWordEventRef = useRef(false);
   const isSendingAnswerEventRef = useRef(false);
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  const playerNameRef = useRef<string>('');
 
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -107,6 +111,46 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       audioContextRef.current?.close();
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    socketRef.current = io('http://localhost:3001', {
+      query: { roomId, userId: currentUserId }
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Connected to socket');
+    });
+
+    socketRef.current.on('playersUpdated', (players: Player[]) => {
+      setPlayers(players);
+    });
+
+    socketRef.current.on('newWord', (data: { word: string, hint: string, scrambled: string }) => {
+      setCurrentWord(data.word);
+      setScrambledWord(data.scrambled);
+      setCurrentHint(data.hint);
+      setAnswer('');
+      setFeedback({ message: '', type: '' });
+      setTimeLeft(20);
+      setShowCountdown(true);
+      setCountdown(3);
+      setIsActive(false);
+      setShowHint(false);
+      setHintUsed(false);
+      setRoundCount(prev => Math.min(prev + 1, maxRounds));
+    });
+
+    socketRef.current.on('gameEnded', (data: { winner: Player }) => {
+      setGameEnded(true);
+      setWinner(data.winner);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, [roomId, currentUserId, maxRounds]);
 
   const playSound = useCallback((type: 'correct' | 'wrong' | 'warning') => {
     const ctx = audioContextRef.current;
@@ -434,23 +478,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
     };
   }, [isActive, timeLeft, handleTimeout, playSound]);
 
-  // Setup realtime channel
-  useEffect(() => {
-    loadPlayers();
 
-    // Note: Realtime functionality needs to be implemented via backend
-    // For now, we'll use polling or implement socket connection later
-
-    // Start first round
-    setTimeout(() => loadNewWord(), 1000);
-
-    // Poll for player updates every 2 seconds
-    const interval = setInterval(() => {
-      loadPlayers();
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [roomId, loadPlayers, loadNewWord]);
 
   const timerPercentage = (timeLeft / 20) * 100;
   const isLowTime = timeLeft <= 5;
