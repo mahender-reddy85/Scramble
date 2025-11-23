@@ -86,8 +86,8 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     const loadRoomData = async () => {
       try {
         const response = await apiClient.get(`/api/game/rooms/${roomId}`);
-        setPlayers(response.data.participants || []);
-        setCreatorName(response.data.room.creator_name || 'Unknown');
+        setPlayers(response.participants || []);
+        setCreatorName(response.room.creator_name || 'Unknown');
       } catch (error) {
         console.error('Error loading room data:', error);
       }
@@ -115,7 +115,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
         difficulty
       });
 
-      const { roomId, roomCode } = response.data;
+      const { roomId, roomCode } = response;
 
       await apiClient.post(`/api/game/rooms/${roomId}/join`, {
         playerName
@@ -177,13 +177,13 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
     try {
       await apiClient.patch(`/api/game/rooms/${roomId}/ready`, {
-        isReady: !isReady
+        is_ready: !isReady
       });
       setIsReady(!isReady);
 
       // Emit to socket for real-time update
       if (socketRef.current) {
-        socketRef.current.emit('toggle-ready', { roomId, userId: currentUserId, isReady: !isReady });
+        socketRef.current.emit('toggle-ready', { roomId, userId: currentUserId, is_ready: !isReady });
       }
     } catch (error: unknown) {
       console.error('Error updating ready status:', error);
