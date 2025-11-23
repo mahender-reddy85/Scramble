@@ -179,6 +179,9 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
 
   const loadNewWord = useCallback(async () => {
     if (roundCount >= maxRounds) {
+      // Load latest player data before determining winner
+      await loadPlayers();
+
       setGameEnded(true);
       const topPlayer = players.reduce((prev, current) =>
         (current.score > prev.score) ? current : prev
