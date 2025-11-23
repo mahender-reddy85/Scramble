@@ -462,7 +462,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       <div className="min-h-screen bg-background flex items-center justify-center p-5">
         <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
           <div className="text-center space-y-4">
-            <h1 className="text-5xl font-bold text-foreground">🏆 Game Over!</h1>
+            <h1 className="text-5xl font-bold text-foreground">Game Over!</h1>
             <div className="text-2xl font-semibold text-primary">
               {winner.user_id === currentUserId ? "You Won!" : `${winner.player_name} Wins!`}
             </div>
