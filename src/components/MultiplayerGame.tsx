@@ -127,6 +127,12 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       setPlayers(players);
     });
 
+    socketRef.current.on('countdown', (data: { countdown: number }) => {
+      setShowCountdown(true);
+      setCountdown(data.countdown);
+      setIsActive(false);
+    });
+
     socketRef.current.on('newWord', (data: { word: string, hint: string, scrambled: string }) => {
       setCurrentWord(data.word);
       setScrambledWord(data.scrambled);
@@ -134,12 +140,13 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       setAnswer('');
       setFeedback({ message: '', type: '' });
       setTimeLeft(20);
-      setShowCountdown(true);
+      setShowCountdown(false);
       setCountdown(3);
-      setIsActive(false);
+      setIsActive(true);
       setShowHint(false);
       setHintUsed(false);
       setRoundCount(prev => Math.min(prev + 1, maxRounds));
+      inputRef.current?.focus();
     });
 
     socketRef.current.on('gameEnded', (data: { winner: Player }) => {
