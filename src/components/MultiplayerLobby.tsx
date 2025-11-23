@@ -90,6 +90,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
         setCreatorName(response.room.creator_name || 'Unknown');
       } catch (error) {
         console.error('Error loading room data:', error);
+        toast.error('Failed to load room data. Please refresh the page.');
       }
     };
 
@@ -127,7 +128,9 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       toast.success(`Room ${roomCode} created!`);
     } catch (error: unknown) {
       console.error('Error creating room:', error);
-      const message = error instanceof Error ? error.message : 'Failed to create room';
+      const message = error instanceof Error && (error as any).response?.data?.error
+        ? (error as any).response.data.error
+        : error instanceof Error ? error.message : 'Failed to create room. Please check your connection and try again.';
       toast.error(message);
     } finally {
       setIsCreating(false);
@@ -165,7 +168,9 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       toast.success(`Joined room ${roomCode}!`);
     } catch (error: unknown) {
       console.error('Error joining room:', error);
-      const message = error instanceof Error ? error.message : 'Failed to join room';
+      const message = error instanceof Error && (error as any).response?.data?.error
+        ? (error as any).response.data.error
+        : error instanceof Error ? error.message : 'Failed to join room. Please check the room code and try again.';
       toast.error(message);
     } finally {
       setIsJoining(false);
@@ -180,14 +185,11 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
         is_ready: !isReady
       });
       setIsReady(!isReady);
-
-      // Emit to socket for real-time update
-      if (socketRef.current) {
-        socketRef.current.emit('toggle-ready', { roomId, userId: currentUserId, is_ready: !isReady });
-      }
     } catch (error: unknown) {
       console.error('Error updating ready status:', error);
-      const message = error instanceof Error ? error.message : 'Failed to update ready status';
+      const message = error instanceof Error && (error as any).response?.data?.error
+        ? (error as any).response.data.error
+        : error instanceof Error ? error.message : 'Failed to update ready status. Please try again.';
       toast.error(message);
     }
   };
@@ -208,16 +210,12 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
     try {
       await apiClient.post(`/api/game/rooms/${roomId}/start`);
-
-      // Emit socket event to start game
-      if (socketRef.current) {
-        socketRef.current.emit('start-game', { roomId });
-      }
-
       toast.success('Game starting...');
     } catch (error: unknown) {
       console.error('Error starting game:', error);
-      const message = error instanceof Error ? error.message : 'Failed to start game';
+      const message = error instanceof Error && (error as any).response?.data?.error
+        ? (error as any).response.data.error
+        : error instanceof Error ? error.message : 'Failed to start game. Please try again.';
       toast.error(message);
     }
   };
