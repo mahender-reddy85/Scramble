@@ -289,7 +289,8 @@ router.put('/participants/:participantId', authenticateToken, async (req, res) =
 
 // Log game event
 router.post('/events', authenticateToken, async (req, res) => {
-  const { room_id, user_id, event_type, current_word, is_correct, points_earned } = req.body;
+  const { room_id, user_id, current_word, is_correct, points_earned } = req.body;
+  const event_type = "answer_submitted"; // default
 
   try {
     await pool.query(
