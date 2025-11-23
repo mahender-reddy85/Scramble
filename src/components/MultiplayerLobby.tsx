@@ -187,9 +187,14 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       setIsReady(!isReady);
     } catch (error: unknown) {
       console.error('Error updating ready status:', error);
-      const message = error instanceof Error && (error as any).response?.data?.error
-        ? (error as any).response.data.error
-        : error instanceof Error ? error.message : 'Failed to update ready status. Please try again.';
+      let message: string;
+      if (error instanceof Error && (error as any).response?.data?.error) {
+        message = String((error as any).response.data.error);
+      } else if (error instanceof Error) {
+        message = error.message;
+      } else {
+        message = 'Failed to update ready status. Please try again.';
+      }
       toast.error(message);
     }
   };
