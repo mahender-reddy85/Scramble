@@ -4,52 +4,11 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { apiClient } from '@/integrations/apiClient';
 import io from 'socket.io-client';
-import type { Socket } from 'socket.io-client';
-
 
 interface WordItem {
   word: string;
   hint: string;
 }
-
-const wordBanks: Record<string, WordItem[]> = {
-  easy: [
-    { word: 'APPLE', hint: 'A common fruit' },
-    { word: 'HOUSE', hint: 'A place to live' },
-    { word: 'WATER', hint: 'Essential for life' },
-    { word: 'MUSIC', hint: 'Sound that entertains' },
-    { word: 'LIGHT', hint: 'Opposite of dark' },
-    { word: 'HAPPY', hint: 'A positive emotion' },
-    { word: 'PHONE', hint: 'Communication device' },
-    { word: 'CHAIR', hint: 'Furniture to sit on' },
-    { word: 'PAPER', hint: 'Used for writing' },
-    { word: 'CLOUD', hint: 'Floats in the sky' },
-  ],
-  medium: [
-    { word: 'BUTTERFLY', hint: 'Colorful insect' },
-    { word: 'COMPUTER', hint: 'Electronic device' },
-    { word: 'MOUNTAIN', hint: 'High landform' },
-    { word: 'HOSPITAL', hint: 'Medical facility' },
-    { word: 'ELEPHANT', hint: 'Large mammal' },
-    { word: 'CALENDAR', hint: 'Tracks dates' },
-    { word: 'QUESTION', hint: 'Seeks an answer' },
-    { word: 'TREASURE', hint: 'Valuable items' },
-    { word: 'KEYBOARD', hint: 'Input device' },
-    { word: 'LANGUAGE', hint: 'Form of communication' },
-  ],
-  hard: [
-    { word: 'ACHIEVEMENT', hint: 'Accomplishment' },
-    { word: 'PSYCHOLOGY', hint: 'Study of mind' },
-    { word: 'PHILOSOPHY', hint: 'Study of wisdom' },
-    { word: 'ATMOSPHERE', hint: 'Layer of gases' },
-    { word: 'TECHNOLOGY', hint: 'Modern innovation' },
-    { word: 'INCREDIBLE', hint: 'Hard to believe' },
-    { word: 'THROUGHOUT', hint: 'From start to end' },
-    { word: 'VOCABULARY', hint: 'Collection of words' },
-    { word: 'MYSTERIOUS', hint: 'Full of mystery' },
-    { word: 'BENEFICIAL', hint: 'Providing advantage' },
-  ]
-};
 
 interface Player {
   id: string;
@@ -256,41 +215,46 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
       return;
     }
 
-    const words = wordBanks[difficulty];
-    const randomIndex = Math.floor(Math.random() * words.length);
-    const wordItem = words[randomIndex];
-
-    const newScrambled = scrambleWord(wordItem.word);
-
-    setCurrentWord(wordItem.word);
-    setScrambledWord(newScrambled);
-    setCurrentHint(wordItem.hint);
-    setAnswer('');
-    setFeedback({ message: '', type: '' });
-    setTimeLeft(20);
-    setShowCountdown(true);
-    setCountdown(3);
-    setIsActive(false);
-    setShowHint(false);
-    setHintUsed(false);
-    setRoundCount(prev => Math.min(prev + 1, maxRounds));
-
-    // Log event
-    if (isSendingNewWordEventRef.current) return;
-    isSendingNewWordEventRef.current = true;
     try {
-      await apiClient.post('/api/game/events', {
-        room_id: roomId,
-        user_id: currentUserId,
-        event_type: 'new_word',
-        current_word: wordItem.word
-      });
-      isSendingNewWordEventRef.current = false;
+      const response = await apiClient.get(`/api/game/words/${difficulty}`);
+      const words = response.words;
+      const randomIndex = Math.floor(Math.random() * words.length);
+      const wordItem = words[randomIndex];
+
+      const newScrambled = scrambleWord(wordItem.word);
+
+      setCurrentWord(wordItem.word);
+      setScrambledWord(newScrambled);
+      setCurrentHint(wordItem.hint);
+      setAnswer('');
+      setFeedback({ message: '', type: '' });
+      setTimeLeft(20);
+      setShowCountdown(true);
+      setCountdown(3);
+      setIsActive(false);
+      setShowHint(false);
+      setHintUsed(false);
+      setRoundCount(prev => Math.min(prev + 1, maxRounds));
+
+      // Log event
+      if (isSendingNewWordEventRef.current) return;
+      isSendingNewWordEventRef.current = true;
+      try {
+        await apiClient.post('/api/game/events', {
+          room_id: roomId,
+          user_id: currentUserId,
+          event_type: 'new_word',
+          current_word: wordItem.word
+        });
+        isSendingNewWordEventRef.current = false;
+      } catch (error) {
+        console.error('Error logging event:', error);
+        console.error("Event send failed once, stopping retries");
+        isSendingNewWordEventRef.current = false;
+        return;
+      }
     } catch (error) {
-      console.error('Error logging event:', error);
-      console.error("Event send failed once, stopping retries");
-      isSendingNewWordEventRef.current = false;
-      return;
+      console.error('Error loading words:', error);
     }
   }, [difficulty, roomId, currentUserId, roundCount, maxRounds, scrambleWord]);
 

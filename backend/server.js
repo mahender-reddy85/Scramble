@@ -244,7 +244,8 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('newWord', {
               word: wordItem.word,
               hint: wordItem.hint,
-              scrambled: scrambled
+              scrambled: scrambled,
+              round: currentRound + 1
             });
           } else {
             // Game ended
