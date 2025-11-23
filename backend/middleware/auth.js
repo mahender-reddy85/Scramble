@@ -1,33 +1,25 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) return res.status(401).json({ error: "No token provided" });
-
-  jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
-    if (err) return res.status(401).json({ error: "Invalid token" });
-
-    req.user = user;
-    next();
-  });
-};
-
-const optionalAuth = (req, res, next) => {
+export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (token) {
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-      if (!err) {
-        req.user = user;
-      }
-      next();
-    });
-  } else {
-    next();
-  }
-};
+  if (!token) return res.status(401).json({ error: 'No token provided' });
 
-module.exports = { authenticateToken, optionalAuth };
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Invalid token' });
+    req.user = user;
+    next();
+  });
+}
+
+export function optionalAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return next();
+
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (!err) req.user = user;
+    next();
+  });
+}
