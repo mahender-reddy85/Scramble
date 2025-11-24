@@ -50,12 +50,20 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   useEffect(() => {
     if (!roomId || !currentUserId) return;
 
+    const token = localStorage.getItem('token');
     socketRef.current = io('https://scramble-hax5.onrender.com', {
       query: { roomId, userId: currentUserId }
     });
 
     socketRef.current.on('connect', () => {
       console.log('Connected to socket in lobby');
+      // Join the socket room
+      socketRef.current.emit('join-room', {
+        roomId,
+        userId: currentUserId,
+        playerName,
+        token
+      });
     });
 
     socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
@@ -124,7 +132,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       const message = error instanceof Error && (error as any).response?.data?.error
         ? (error as any).response.data.error
         : error instanceof Error ? error.message : 'Failed to create room. Please check your connection and try again.';
-      toast.error(message, {});
+      toast.error(message);
     } finally {
       setIsCreating(false);
     }
