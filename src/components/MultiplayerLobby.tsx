@@ -95,12 +95,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     };
 
     loadRoomData();
-
-    const interval = setInterval(loadRoomData, 2000);
-
-    return () => {
-      clearInterval(interval);
-    };
   }, [roomId]);
 
   const handleCreateRoom = async () => {
@@ -196,7 +190,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       await apiClient.patch(`/api/game/rooms/${roomId}/ready`, {
         is_ready: newReadyStatus
       });
-      toast.success(newReadyStatus ? 'You are now ready!' : 'You are no longer ready.', {});
+      toast.success(newReadyStatus ? 'You are now ready!' : 'You are no longer ready!');
     } catch (error: unknown) {
       console.error('Error updating ready status:', error);
       // Revert optimistic update on failure
@@ -216,7 +210,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       } else {
         message = 'Failed to update ready status. Please check your connection and try again.';
       }
-      toast.error(message, {});
+      toast.error(message);
     }
   };
 
