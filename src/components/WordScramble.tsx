@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { apiClient } from '@/integrations/apiClient';
+import { useTheme } from './ThemeProvider';
 import MultiplayerLobby from './MultiplayerLobby';
 import UserMenu from './UserMenu';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +17,7 @@ interface WordItem {
 
 export default function WordScramble() {
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [wordList, setWordList] = useState<Array<{ word: string; hint: string }>>([]);
   const [currentWord, setCurrentWord] = useState('');
@@ -26,7 +29,6 @@ export default function WordScramble() {
   const [isActive, setIsActive] = useState(false);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
-  const [isDark, setIsDark] = useState(false);
   const [showStart, setShowStart] = useState(true);
   const [showGameStarted, setShowGameStarted] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -264,9 +266,7 @@ export default function WordScramble() {
     setShowHint(!showHint);
   };
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
-  }, [isDark]);
+  const isDark = theme === 'dark';
 
   const timerPercentage = (timeLeft / 15) * 100;
   const isLowTime = timeLeft <= 5;
@@ -393,7 +393,7 @@ export default function WordScramble() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setIsDark(!isDark)}
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
               className="rounded-full"
             >
               {isDark ? '☀️' : '🌙'}
