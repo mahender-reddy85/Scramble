@@ -51,7 +51,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     if (!roomId || !currentUserId) return;
 
     const token = localStorage.getItem('token');
-    socketRef.current = io('https://scramble-hax5.onrender.com', {
+    socketRef.current = io('http://localhost:3001', {
       query: { roomId, userId: currentUserId }
     });
 
@@ -243,7 +243,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       const message = error instanceof Error && (error as any).response?.data?.error
         ? (error as any).response.data.error
         : error instanceof Error ? error.message : 'Failed to start game. Please try again.';
-      toast.error(message, {});
+      toast.error(message);
     }
   };
 
