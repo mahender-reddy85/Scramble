@@ -304,8 +304,9 @@ router.get('/rooms/:roomId', optionalAuth, async (req, res) => {
     }
 
     const participants = await pool.query(`
-      SELECT gp.id, gp.player_name, gp.is_ready, gp.user_id
+      SELECT gp.id, COALESCE(gp.player_name, p.username) as player_name, gp.is_ready, gp.user_id
       FROM game_participants gp
+      LEFT JOIN profiles p ON gp.user_id = p.id
       WHERE gp.room_id = $1
       ORDER BY gp.joined_at
     `, [roomId]);
