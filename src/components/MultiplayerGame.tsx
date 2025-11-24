@@ -74,7 +74,7 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
   useEffect(() => {
     if (!currentUserId) return;
 
-    socketRef.current = io('https://scramble-hax5.onrender.com', {
+    socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
       query: { roomId, userId: currentUserId }
     });
 
