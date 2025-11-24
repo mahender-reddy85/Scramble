@@ -70,6 +70,12 @@ const io = new Server(server, {
 
 app.set('io', io);
 
+// Middleware to attach io to req
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 app.use(cors());
 app.use(express.json());
 
