@@ -80,20 +80,19 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     };
   }, [roomId, currentUserId]);
 
-  useEffect(() => {
+  const loadRoomData = async () => {
     if (!roomId) return;
+    try {
+      const response = await apiClient.get(`/api/game/rooms/${roomId}`);
+      setPlayers(response.participants || []);
+      setCreatorName(response.room.creator_name || 'Unknown');
+    } catch (error) {
+      console.error('Error loading room data:', error);
+      toast.error('Failed to load room data. Please refresh the page.');
+    }
+  };
 
-    const loadRoomData = async () => {
-      try {
-        const response = await apiClient.get(`/api/game/rooms/${roomId}`);
-        setPlayers(response.participants || []);
-        setCreatorName(response.room.creator_name || 'Unknown');
-      } catch (error) {
-        console.error('Error loading room data:', error);
-        toast.error('Failed to load room data. Please refresh the page.');
-      }
-    };
-
+  useEffect(() => {
     loadRoomData();
   }, [roomId]);
 
@@ -125,7 +124,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       const message = error instanceof Error && (error as any).response?.data?.error
         ? (error as any).response.data.error
         : error instanceof Error ? error.message : 'Failed to create room. Please check your connection and try again.';
-      toast.error(message);
+      toast.error(message, {});
     } finally {
       setIsCreating(false);
     }
@@ -236,7 +235,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       const message = error instanceof Error && (error as any).response?.data?.error
         ? (error as any).response.data.error
         : error instanceof Error ? error.message : 'Failed to start game. Please try again.';
-      toast.error(message);
+      toast.error(message, {});
     }
   };
 
