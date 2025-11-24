@@ -210,32 +210,12 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       )
     );
 
-    try {
-      await apiClient.patch(`/api/game/rooms/${roomId}/ready`, {
-        is_ready: newReadyStatus
-      });
-      toast.success(newReadyStatus ? 'You are now ready!' : 'You are no longer ready!');
-    } catch (error: unknown) {
-      console.error('Error updating ready status:', error);
-      // Revert optimistic update on failure
-      setIsReady(!newReadyStatus);
-      setPlayers(prevPlayers =>
-        prevPlayers.map(player =>
-          player.user_id === currentUserId
-            ? { ...player, is_ready: !newReadyStatus }
-            : player
-        )
-      );
-      let message: string;
-      if (error instanceof Error && (error as any).response?.data?.error) {
-        message = String((error as any).response.data.error);
-      } else if (error instanceof Error) {
-        message = error.message;
-      } else {
-        message = 'Failed to update ready status. Please check your connection and try again.';
-      }
-      toast.error(message);
-    }
+    socketRef.current.emit('toggle-ready', {
+      roomId,
+      userId: currentUserId,
+      is_ready: newReadyStatus
+    });
+    toast.success(newReadyStatus ? 'You are now ready!' : 'You are no longer ready!');
   };
 
   const handleStartGame = async () => {
