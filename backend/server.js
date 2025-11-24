@@ -134,10 +134,8 @@ io.on('connection', (socket) => {
         ORDER BY gp.joined_at
       `, [roomId]);
 
-      socket.emit('room-joined', {
-        room: roomData.rows[0],
-        participants: participants.rows
-      });
+      // Emit current participants to the joining user
+      socket.emit('participantsUpdated', participants.rows);
 
       // Notify others
       socket.to(roomId).emit('participant-joined', {
