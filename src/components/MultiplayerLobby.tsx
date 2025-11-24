@@ -51,7 +51,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     if (!roomId || !currentUserId) return;
 
     const token = localStorage.getItem('token');
-    socketRef.current = io('http://localhost:3001', {
+    socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
       query: { roomId, userId: currentUserId }
     });
 
