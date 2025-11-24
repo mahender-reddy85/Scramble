@@ -106,6 +106,16 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     loadRoomData();
   }, [roomId]);
 
+  useEffect(() => {
+    if (!roomId) return;
+
+    const interval = setInterval(() => {
+      loadRoomData();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [roomId]);
+
   const handleCreateRoom = async () => {
     if (!playerName.trim()) {
       toast.error('Please enter your name');
