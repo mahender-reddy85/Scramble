@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,63 +12,11 @@ interface WordItem {
   hint: string;
 }
 
-const wordBanks: Record<string, WordItem[]> = {
-  easy: [
-    { word: 'APPLE', hint: 'A common fruit' },
-    { word: 'HOUSE', hint: 'A place to live' },
-    { word: 'WATER', hint: 'Essential for life' },
-    { word: 'MUSIC', hint: 'Sound that entertains' },
-    { word: 'LIGHT', hint: 'Opposite of dark' },
-    { word: 'HAPPY', hint: 'A positive emotion' },
-    { word: 'PHONE', hint: 'Communication device' },
-    { word: 'CHAIR', hint: 'Furniture to sit on' },
-    { word: 'PAPER', hint: 'Used for writing' },
-    { word: 'CLOUD', hint: 'Floats in the sky' },
-    { word: 'SMILE', hint: 'Facial expression' },
-    { word: 'PLANT', hint: 'Grows in soil' },
-    { word: 'BREAD', hint: 'Common food' },
-    { word: 'OCEAN', hint: 'Large body of water' },
-    { word: 'DREAM', hint: 'Happens during sleep' }
-  ],
-  medium: [
-    { word: 'BUTTERFLY', hint: 'Colorful insect' },
-    { word: 'COMPUTER', hint: 'Electronic device' },
-    { word: 'MOUNTAIN', hint: 'High landform' },
-    { word: 'HOSPITAL', hint: 'Medical facility' },
-    { word: 'ELEPHANT', hint: 'Large mammal' },
-    { word: 'CALENDAR', hint: 'Tracks dates' },
-    { word: 'QUESTION', hint: 'Seeks an answer' },
-    { word: 'TREASURE', hint: 'Valuable items' },
-    { word: 'KEYBOARD', hint: 'Input device' },
-    { word: 'LANGUAGE', hint: 'Form of communication' },
-    { word: 'SANDWICH', hint: 'Popular meal' },
-    { word: 'BIRTHDAY', hint: 'Annual celebration' },
-    { word: 'UNIVERSE', hint: 'Everything that exists' },
-    { word: 'BUILDING', hint: 'Structure with walls' },
-    { word: 'PLATFORM', hint: 'Raised surface' }
-  ],
-  hard: [
-    { word: 'ACHIEVEMENT', hint: 'Accomplishment' },
-    { word: 'PSYCHOLOGY', hint: 'Study of mind' },
-    { word: 'PHILOSOPHY', hint: 'Study of wisdom' },
-    { word: 'ATMOSPHERE', hint: 'Layer of gases' },
-    { word: 'TECHNOLOGY', hint: 'Modern innovation' },
-    { word: 'INCREDIBLE', hint: 'Hard to believe' },
-    { word: 'THROUGHOUT', hint: 'From start to end' },
-    { word: 'VOCABULARY', hint: 'Collection of words' },
-    { word: 'MYSTERIOUS', hint: 'Full of mystery' },
-    { word: 'BENEFICIAL', hint: 'Providing advantage' },
-    { word: 'RESTAURANT', hint: 'Place to eat out' },
-    { word: 'CHAMPIONSHIP', hint: 'Top competition' },
-    { word: 'RESPONSIBILITY', hint: 'Duty or obligation' },
-    { word: 'SIGNIFICANCE', hint: 'Importance or meaning' },
-    { word: 'ENTREPRENEUR', hint: 'Business starter' }
-  ]
-};
 
 export default function WordScramble() {
   const navigate = useNavigate();
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [wordList, setWordList] = useState<Array<{ word: string; hint: string }>>([]);
   const [currentWord, setCurrentWord] = useState('');
   const [scrambledWord, setScrambledWord] = useState('');
   const [currentHint, setCurrentHint] = useState('');
@@ -85,10 +34,25 @@ export default function WordScramble() {
   const [gameMode, setGameMode] = useState<'single' | 'multi'>('single');
   const [showMultiplayerLobby, setShowMultiplayerLobby] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
+
+  useEffect(() => {
+    async function fetchWords() {
+      try {
+        const response = await fetch(`/api/game/words/${difficulty}`);
+        const data = await response.json();
+        setWordList(data.words);
+      } catch (error) {
+        console.error('Failed to load words:', error);
+        setWordList([]);
+      }
+    }
+    fetchWords();
+  }, [difficulty]);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+
 
   // Initialize audio context
   useEffect(() => {
@@ -149,9 +113,12 @@ export default function WordScramble() {
   };
 
   const loadNewWord = useCallback(() => {
-    const words = wordBanks[difficulty];
-    const randomIndex = Math.floor(Math.random() * words.length);
-    const wordItem = words[randomIndex];
+    if (wordList.length === 0) {
+      toast.error('No words available to play.');
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * wordList.length);
+    const wordItem = wordList[randomIndex];
     
     setCurrentWord(wordItem.word);
     setScrambledWord(scrambleWord(wordItem.word));
@@ -164,7 +131,7 @@ export default function WordScramble() {
     setHintUsed(false);
     
     setTimeout(() => inputRef.current?.focus(), 100);
-  }, [difficulty]);
+  }, [wordList, scrambleWord]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -310,10 +277,6 @@ export default function WordScramble() {
       <div className="flex items-center justify-center min-h-screen p-5">
         {showMultiplayerLobby ? (
           <MultiplayerLobby
-            onStartGame={(roomId) => {
-              console.log('Starting multiplayer game with room:', roomId);
-              toast.info('Multiplayer coming soon!');
-            }}
             onBack={() => {
               setShowMultiplayerLobby(false);
               setShowStart(true);
