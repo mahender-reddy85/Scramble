@@ -67,6 +67,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     });
 
     socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
+      console.log('Received participantsUpdated event:', updatedPlayers);
       setPlayers(updatedPlayers);
     });
 
@@ -80,6 +81,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     });
 
     socketRef.current.on('participant-joined', (data: { participants: Player[] }) => {
+      console.log('Received participant-joined event:', data);
       setPlayers(data.participants);
     });
 
