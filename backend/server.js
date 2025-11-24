@@ -136,7 +136,7 @@ io.on('connection', (socket) => {
       // Emit current participants to the joining user
       socket.emit('participantsUpdated', participants.rows);
 
-      // Notify others
+      // Notify others with updated participants
       socket.to(roomId).emit('participant-joined', {
         userId,
         playerName,
@@ -252,10 +252,11 @@ io.on('connection', (socket) => {
         [is_ready, roomId, userId]
       );
 
-      // Get updated participants
+      // Get updated participants with COALESCE for player_name
       const participants = await pool.query(`
-        SELECT gp.id, gp.player_name, gp.is_ready, gp.user_id
+        SELECT gp.id, COALESCE(gp.player_name, p.username) as player_name, gp.is_ready, gp.user_id
         FROM game_participants gp
+        LEFT JOIN profiles p ON gp.user_id = p.id
         WHERE gp.room_id = $1
         ORDER BY gp.joined_at
       `, [roomId]);

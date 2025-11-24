@@ -69,6 +69,11 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
       console.log('Received participantsUpdated event:', updatedPlayers);
       setPlayers(updatedPlayers);
+      // Update local ready status if it changed
+      const currentPlayer = updatedPlayers.find(p => p.user_id === currentUserId);
+      if (currentPlayer) {
+        setIsReady(currentPlayer.is_ready);
+      }
     });
 
     socketRef.current.on('countdown', (data: { countdown: number }) => {
