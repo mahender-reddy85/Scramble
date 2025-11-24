@@ -111,16 +111,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     loadRoomData();
   }, [roomId]);
 
-  useEffect(() => {
-    if (!roomId) return;
-
-    const interval = setInterval(() => {
-      loadRoomData();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [roomId]);
-
   const handleCreateRoom = async () => {
     if (!playerName.trim()) {
       toast.error('Please enter your name');
@@ -196,19 +186,9 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   };
 
   const handleToggleReady = async () => {
-    if (!roomId) return;
+    if (!roomId || !socketRef.current) return;
 
     const newReadyStatus = !isReady;
-
-    // Optimistically update local state
-    setIsReady(newReadyStatus);
-    setPlayers(prevPlayers =>
-      prevPlayers.map(player =>
-        player.user_id === currentUserId
-          ? { ...player, is_ready: newReadyStatus }
-          : player
-      )
-    );
 
     socketRef.current.emit('toggle-ready', {
       roomId,
