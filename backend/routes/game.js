@@ -186,14 +186,25 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
 // Update ready status
 router.patch('/rooms/:roomId/ready', authenticateToken, async (req, res) => {
   const { roomId } = req.params;
-  const { isReady } = req.body;
+  const { is_ready } = req.body;
   const userId = req.user.id;
 
   try {
     await pool.query(
       'UPDATE game_participants SET is_ready = $1 WHERE room_id = $2 AND user_id = $3',
-      [isReady, roomId, userId]
+      [is_ready, roomId, userId]
     );
+
+    // Get updated participants and broadcast to room
+    const updatedParticipants = await pool.query(`
+      SELECT gp.id, gp.player_name, gp.is_ready, gp.user_id
+      FROM game_participants gp
+      WHERE gp.room_id = $1
+      ORDER BY gp.joined_at
+    `, [roomId]);
+
+    const io = req.app.get('io');
+    io.to(roomId).emit('participantsUpdated', updatedParticipants.rows);
 
     res.json({ success: true });
   } catch (error) {
