@@ -165,6 +165,17 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
       [participantId, roomId, userId, playerName]
     );
 
+    // Get updated participants and broadcast to room
+    const updatedParticipants = await pool.query(`
+      SELECT gp.id, gp.player_name, gp.is_ready, gp.user_id
+      FROM game_participants gp
+      WHERE gp.room_id = $1
+      ORDER BY gp.joined_at
+    `, [roomId]);
+
+    const io = req.app.get('io');
+    io.to(roomId).emit('participantsUpdated', updatedParticipants.rows);
+
     res.json({ participantId });
   } catch (error) {
     console.error('Join room error:', error);
