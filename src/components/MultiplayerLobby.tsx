@@ -38,6 +38,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [isReady, setIsReady] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [gameStarting, setGameStarting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [creatorName, setCreatorName] = useState<string>('');
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -85,12 +86,21 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       }
     });
 
+    socketRef.current.on('gameStarting', () => {
+      console.log('Game is starting - showing countdown');
+      setGameStarting(true);
+      setCountdown(3);
+    });
+
     socketRef.current.on('countdown', (data: { countdown: number }) => {
+      console.log('Countdown:', data.countdown);
       setCountdown(data.countdown);
     });
 
     socketRef.current.on('newWord', () => {
+      console.log('New word received - starting game');
       setGameStarted(true);
+      setGameStarting(false);
       setCountdown(null);
     });
 
@@ -249,8 +259,23 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           setIsHost(false);
           setRoomCode('');
           setCountdown(null);
+          setGameStarting(false);
         }}
       />
+    );
+  }
+
+  if (gameStarting && countdown !== null) {
+    return (
+      <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6 flex flex-col items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <h2 className="text-2xl font-bold text-foreground">Game Starting...</h2>
+          <div className="text-8xl font-bold text-primary animate-bounce">
+            {countdown > 0 ? countdown : 'GO!'}
+          </div>
+          <p className="text-lg text-muted-foreground">Get ready to play!</p>
+        </div>
+      </div>
     );
   }
 
