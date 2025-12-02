@@ -40,9 +40,8 @@ export default function WordScramble() {
   useEffect(() => {
     async function fetchWords() {
       try {
-        const response = await fetch(`/api/game/words/${difficulty}`);
-        const data = await response.json();
-        setWordList(data.words);
+        const response = await apiClient.get(`/api/game/words/${difficulty}`);
+        setWordList(response.words || []);
       } catch (error) {
         console.error('Failed to load words:', error);
         setWordList([]);
