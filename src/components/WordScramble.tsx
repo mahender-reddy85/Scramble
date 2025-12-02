@@ -104,15 +104,18 @@ export default function WordScramble() {
     }
   }, []);
 
-  const scrambleWord = (word: string): string => {
-    const letters = word.split('');
-    for (let i = letters.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [letters[i], letters[j]] = [letters[j], letters[i]];
-    }
-    const scrambled = letters.join('');
-    return scrambled === word ? scrambleWord(word) : scrambled;
-  };
+  const scrambleWord = useCallback((word: string): string => {
+    const scramble = (str: string): string => {
+      const letters = str.split('');
+      for (let i = letters.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [letters[i], letters[j]] = [letters[j], letters[i]];
+      }
+      const scrambled = letters.join('');
+      return scrambled === str ? scramble(str) : scrambled;
+    };
+    return scramble(word);
+  }, []);
 
   const loadNewWord = useCallback(() => {
     if (wordList.length === 0) {

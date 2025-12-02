@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { Socket } from 'socket.io-client';
+import io from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { apiClient } from '@/integrations/apiClient';
-import io from 'socket.io-client';
 import MultiplayerGame from './MultiplayerGame';
 
 interface MultiplayerLobbyProps {
@@ -16,6 +17,14 @@ interface Player {
   player_name: string;
   is_ready: boolean;
   user_id: string;
+}
+
+interface ErrorResponse {
+  response?: {
+    data?: {
+      error: string;
+    };
+  };
 }
 
 export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
@@ -32,7 +41,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [creatorName, setCreatorName] = useState<string>('');
   const [countdown, setCountdown] = useState<number | null>(null);
-  const socketRef = useRef<any>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -58,7 +67,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     socketRef.current.on('connect', () => {
       console.log('Connected to socket in lobby');
       // Join the socket room
-      socketRef.current.emit('join-room', {
+      socketRef.current?.emit('join-room', {
         roomId,
         userId: currentUserId,
         playerName,
@@ -93,9 +102,9 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     return () => {
       socketRef.current?.disconnect();
     };
-  }, [roomId, currentUserId]);
+  }, [roomId, currentUserId, playerName]);
 
-  const loadRoomData = async () => {
+  const loadRoomData = useCallback(async () => {
     if (!roomId) return;
     try {
       const response = await apiClient.get(`/api/game/rooms/${roomId}`);
@@ -105,11 +114,11 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       console.error('Error loading room data:', error);
       toast.error('Failed to load room data. Please refresh the page.');
     }
-  };
+  }, [roomId]);
 
   useEffect(() => {
     loadRoomData();
-  }, [roomId]);
+  }, [roomId, loadRoomData]);
 
   const handleCreateRoom = async () => {
     if (!playerName.trim()) {
@@ -136,8 +145,9 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       toast.success(`Room ${roomCode} created!`);
     } catch (error: unknown) {
       console.error('Error creating room:', error);
-      const message = error instanceof Error && (error as any).response?.data?.error
-        ? (error as any).response.data.error
+      const err = error as ErrorResponse;
+      const message = err instanceof Error && err.response?.data?.error
+        ? err.response.data.error
         : error instanceof Error ? error.message : 'Failed to create room. Please check your connection and try again.';
       toast.error(message);
     } finally {
@@ -176,8 +186,9 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       toast.success(`Joined room ${roomCode}!`);
     } catch (error: unknown) {
       console.error('Error joining room:', error);
-      const message = error instanceof Error && (error as any).response?.data?.error
-        ? (error as any).response.data.error
+      const err = error as ErrorResponse;
+      const message = err instanceof Error && err.response?.data?.error
+        ? err.response.data.error
         : error instanceof Error ? error.message : 'Failed to join room. Please check the room code and try again.';
       toast.error(message);
     } finally {
@@ -217,8 +228,9 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       toast.success('Game starting...');
     } catch (error: unknown) {
       console.error('Error starting game:', error);
-      const message = error instanceof Error && (error as any).response?.data?.error
-        ? (error as any).response.data.error
+      const err = error as ErrorResponse;
+      const message = err instanceof Error && err.response?.data?.error
+        ? err.response.data.error
         : error instanceof Error ? error.message : 'Failed to start game. Please try again.';
       toast.error(message);
     }
