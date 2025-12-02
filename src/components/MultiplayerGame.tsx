@@ -21,10 +21,11 @@ interface Player {
 interface MultiplayerGameProps {
   roomId: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  initialWord?: { word: string; hint: string; scrambled: string } | null;
   onExit: () => void;
 }
 
-export default function MultiplayerGame({ roomId, difficulty, onExit }: MultiplayerGameProps) {
+export default function MultiplayerGame({ roomId, difficulty, initialWord, onExit }: MultiplayerGameProps) {
   const [currentWord, setCurrentWord] = useState('');
   const [scrambledWord, setScrambledWord] = useState('');
   const [currentHint, setCurrentHint] = useState('');
@@ -72,51 +73,17 @@ export default function MultiplayerGame({ roomId, difficulty, onExit }: Multipla
   }, []);
 
   useEffect(() => {
-    if (!currentUserId) return;
-
-    socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
-      query: { roomId, userId: currentUserId }
-    });
-
-    socketRef.current.on('connect', () => {
-      console.log('Connected to socket');
-    });
-
-    socketRef.current.on('playersUpdated', (players: Player[]) => {
-      setPlayers(players);
-    });
-
-    socketRef.current.on('countdown', (data: { countdown: number }) => {
-      setShowCountdown(true);
-      setCountdown(data.countdown);
-      setIsActive(false);
-    });
-
-    socketRef.current.on('newWord', (data: { word: string, hint: string, scrambled: string }) => {
-      setCurrentWord(data.word);
-      setScrambledWord(data.scrambled);
-      setCurrentHint(data.hint);
-      setAnswer('');
-      setFeedback({ message: '', type: '' });
-      setTimeLeft(20);
-      setShowCountdown(false);
-      setCountdown(3);
+    // Set initial word if provided from parent
+    if (initialWord) {
+      console.log('Setting initial word:', initialWord);
+      setCurrentWord(initialWord.word);
+      setScrambledWord(initialWord.scrambled);
+      setCurrentHint(initialWord.hint);
       setIsActive(true);
-      setShowHint(false);
-      setHintUsed(false);
-      setRoundCount(prev => Math.min(prev + 1, maxRounds));
+      setGameStarted(true);
       inputRef.current?.focus();
-    });
-
-    socketRef.current.on('gameEnded', (data: { winner: Player }) => {
-      setGameEnded(true);
-      setWinner(data.winner);
-    });
-
-    return () => {
-      socketRef.current?.disconnect();
-    };
-  }, [roomId, currentUserId, maxRounds]);
+    }
+  }, [initialWord]);
 
   const playSound = useCallback((type: 'correct' | 'wrong' | 'warning') => {
     const ctx = audioContextRef.current;
