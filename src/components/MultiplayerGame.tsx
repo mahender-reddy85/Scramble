@@ -82,6 +82,8 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       setIsActive(true);
       setGameStarted(true);
       inputRef.current?.focus();
+      // If this is the first word, start round 1 so UI shows correct round and scoreboard
+      setRoundCount(prev => prev === 0 ? 1 : prev);
     }
   }, [initialWord]);
 
@@ -140,6 +142,13 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       console.error('Error loading players:', error);
     }
   }, [roomId]);
+
+  // Load players on mount / when room is set so scoreboard shows immediately
+  useEffect(() => {
+    if (roomId) {
+      loadPlayers();
+    }
+  }, [roomId, loadPlayers]);
 
   const updatePlayerScore = useCallback(async (points: number, newStreak: number) => {
     const currentPlayer = players.find(p => p.user_id === currentUserId);
