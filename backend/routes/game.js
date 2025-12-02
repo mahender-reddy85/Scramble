@@ -247,6 +247,90 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
       ['active', roomId]
     );
 
+    // Get room difficulty
+    const roomData = await pool.query(
+      'SELECT difficulty FROM game_rooms WHERE id = $1',
+      [roomId]
+    );
+    
+    const difficulty = roomData.rows[0]?.difficulty || 'easy';
+
+    // Emit countdown and then first word via socket.io
+    const io = req.app.get('io');
+    
+    // Start countdown
+    let countdown = 3;
+    const countdownInterval = setInterval(() => {
+      io.to(roomId).emit('countdown', { countdown });
+      countdown--;
+      if (countdown < 0) {
+        clearInterval(countdownInterval);
+        
+        // Get word banks from server.js or define here
+        const wordBanks = {
+          easy: [
+            { word: 'APPLE', hint: 'A common fruit' },
+            { word: 'HOUSE', hint: 'A place to live' },
+            { word: 'WATER', hint: 'Essential for life' },
+            { word: 'MUSIC', hint: 'Sound that entertains' },
+            { word: 'LIGHT', hint: 'Opposite of dark' },
+            { word: 'HAPPY', hint: 'A positive emotion' },
+            { word: 'PHONE', hint: 'Communication device' },
+            { word: 'CHAIR', hint: 'Furniture to sit on' },
+            { word: 'PAPER', hint: 'Used for writing' },
+            { word: 'CLOUD', hint: 'Floats in the sky' },
+          ],
+          medium: [
+            { word: 'BUTTERFLY', hint: 'Colorful insect' },
+            { word: 'COMPUTER', hint: 'Electronic device' },
+            { word: 'MOUNTAIN', hint: 'High landform' },
+            { word: 'HOSPITAL', hint: 'Medical facility' },
+            { word: 'ELEPHANT', hint: 'Large mammal' },
+            { word: 'CALENDAR', hint: 'Tracks dates' },
+            { word: 'QUESTION', hint: 'Seeks an answer' },
+            { word: 'TREASURE', hint: 'Valuable items' },
+            { word: 'KEYBOARD', hint: 'Input device' },
+            { word: 'LANGUAGE', hint: 'Form of communication' },
+          ],
+          hard: [
+            { word: 'ACHIEVEMENT', hint: 'Accomplishment' },
+            { word: 'PSYCHOLOGY', hint: 'Study of mind' },
+            { word: 'PHILOSOPHY', hint: 'Study of wisdom' },
+            { word: 'ATMOSPHERE', hint: 'Layer of gases' },
+            { word: 'TECHNOLOGY', hint: 'Modern innovation' },
+            { word: 'INCREDIBLE', hint: 'Hard to believe' },
+            { word: 'THROUGHOUT', hint: 'From start to end' },
+            { word: 'VOCABULARY', hint: 'Collection of words' },
+            { word: 'MYSTERIOUS', hint: 'Full of mystery' },
+            { word: 'BENEFICIAL', hint: 'Providing advantage' },
+          ]
+        };
+
+        const scrambleWord = (word) => {
+          const letters = word.split('');
+          for (let i = letters.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [letters[i], letters[j]] = [letters[j], letters[i]];
+          }
+          const scrambled = letters.join('');
+          return scrambled === word ? scrambleWord(word) : scrambled;
+        };
+
+        // Send first word
+        const words = wordBanks[difficulty] || wordBanks.easy;
+        const randomIndex = Math.floor(Math.random() * words.length);
+        const wordItem = words[randomIndex];
+        const scrambled = scrambleWord(wordItem.word);
+
+        io.to(roomId).emit('newWord', {
+          word: wordItem.word,
+          hint: wordItem.hint,
+          scrambled: scrambled,
+          round: 1
+        });
+      }
+    }, 1000);
+
     res.json({ success: true });
   } catch (error) {
     console.error('Start game error:', error);
