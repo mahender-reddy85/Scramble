@@ -159,74 +159,61 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     }
   }, [currentUserId, players]);
 
-  const loadNewWord = useCallback(async () => {
-    if (roundCount >= maxRounds) {
-      // Load latest player data before determining winner
-      const freshData = await apiClient.get(`/api/game/participants/${roomId}`);
-      setPlayers(freshData || []);
-
-      setGameEnded(true);
-      if (freshData && freshData.length > 0) {
-        const topPlayer = freshData.reduce((prev, current) =>
-          (current.score > prev.score) ? current : prev
-        );
-        setWinner(topPlayer);
-      }
-
-      try {
-        await apiClient.patch(`/api/game/rooms/${roomId}`, {
-          status: 'finished',
-          finished_at: new Date().toISOString()
-        });
-      } catch (error) {
-        console.error('Error updating room status:', error);
-      }
-
-      return;
-    }
-
-    try {
-      const response = await apiClient.get(`/api/game/words/${difficulty}`);
-      const words = response.words;
-      const randomIndex = Math.floor(Math.random() * words.length);
-      const wordItem = words[randomIndex];
-
-      const newScrambled = scrambleWord(wordItem.word);
-
-      setCurrentWord(wordItem.word);
-      setScrambledWord(newScrambled);
-      setCurrentHint(wordItem.hint);
-      setAnswer('');
-      setFeedback({ message: '', type: '' });
-      setTimeLeft(20);
-      setShowCountdown(true);
-      setCountdown(3);
-      setIsActive(false);
-      setShowHint(false);
-      setHintUsed(false);
-      setRoundCount(prev => Math.min(prev + 1, maxRounds));
-
-      // Log event
-      if (isSendingNewWordEventRef.current) return;
-      isSendingNewWordEventRef.current = true;
-      try {
-        await apiClient.post('/api/game/events', {
-          room_id: roomId,
-          user_id: currentUserId,
-          event_type: 'new_word',
-          current_word: wordItem.word
-        });
-        isSendingNewWordEventRef.current = false;
-      } catch (error) {
-        console.error('Error logging event:', error);
-        console.error("Event send failed once, stopping retries");
-        isSendingNewWordEventRef.current = false;
+  const loadNewWord = useCallback(async (currentRound: number) => {
+      if (currentRound >= maxRounds) {
         return;
       }
-    } catch (error) {
-      console.error('Error loading words:', error);
-    }
-  }, [difficulty, roomId, currentUserId, roundCount, maxRounds, scrambleWord]);
+
+      try {
+        const freshData = await apiClient.get(`/api/game/participants/${roomId}`);
+        if (freshData && freshData.length > 0) {
+          setPlayers(freshData);
+        }
+      } catch (error) {
+        console.error('Error loading players:', error);
+      }
+
+      try {
+        const response = await apiClient.get(`/api/game/words/${difficulty}`);
+        const words = response.words;
+        const randomIndex = Math.floor(Math.random() * words.length);
+        const wordItem = words[randomIndex];
+
+        const newScrambled = scrambleWord(wordItem.word);
+
+        setCurrentWord(wordItem.word);
+        setScrambledWord(newScrambled);
+        setCurrentHint(wordItem.hint);
+        setAnswer('');
+        setFeedback({ message: '', type: '' });
+        setTimeLeft(20);
+        setShowCountdown(true);
+        setCountdown(3);
+        setIsActive(false);
+        setShowHint(false);
+        setHintUsed(false);
+
+        // Log event
+        if (isSendingNewWordEventRef.current) return;
+        isSendingNewWordEventRef.current = true;
+        try {
+          await apiClient.post('/api/game/events', {
+            room_id: roomId,
+            user_id: currentUserId,
+            event_type: 'new_word',
+            current_word: wordItem.word
+          });
+          isSendingNewWordEventRef.current = false;
+        } catch (error) {
+          console.error('Error logging event:', error);
+          console.error("Event send failed once, stopping retries");
+          isSendingNewWordEventRef.current = false;
+          return;
+        }
+      } catch (error) {
+        console.error('Error loading words:', error);
+      }
+    }, [difficulty, roomId, currentUserId, maxRounds, scrambleWord]);
 
   // Countdown effect
   useEffect(() => {
@@ -249,6 +236,35 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     return () => clearInterval(countdownInterval);
   }, [showCountdown, countdown]);
 
+  // Handle game end when all rounds are complete
+  useEffect(() => {
+    if (roundCount >= maxRounds && roundCount > 0) {
+      const handleGameEnd = async () => {
+        try {
+          const freshData = await apiClient.get(`/api/game/participants/${roomId}`);
+          if (freshData && freshData.length > 0) {
+            setPlayers(freshData);
+            const topPlayer = freshData.reduce((prev, current) =>
+              (current.score > prev.score) ? current : prev
+            );
+            setWinner(topPlayer);
+          }
+
+          await apiClient.patch(`/api/game/rooms/${roomId}`, {
+            status: 'finished',
+            finished_at: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error('Error finishing game:', error);
+        }
+
+        setGameEnded(true);
+      };
+
+      handleGameEnd();
+    }
+  }, [roundCount, maxRounds, roomId]);
+
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -269,8 +285,18 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       updatePlayerScore(0, 0);
     }
     
-    setTimeout(() => loadNewWord(), 3000);
-  }, [currentWord, stopTimer, loadNewWord, currentUserId, players, updatePlayerScore]);
+     setTimeout(() => {
+       setRoundCount(prev => {
+         const nextRound = Math.min(prev + 1, maxRounds);
+         if (nextRound >= maxRounds) {
+           loadNewWord(maxRounds);
+         } else {
+           loadNewWord(nextRound);
+         }
+         return nextRound;
+       });
+     }, 3000);
+   }, [currentWord, stopTimer, loadNewWord, currentUserId, players, updatePlayerScore, maxRounds]);
 
   const getBasePoints = useCallback(() => {
     const pointsMap = { easy: 5, medium: 8, hard: 10 };
@@ -312,9 +338,19 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       isSendingAnswerEventRef.current = false;
       return;
     }
-    
-    setTimeout(() => loadNewWord(), 2500);
-  }, [stopTimer, getBasePoints, timeLeft, loadNewWord, playSound, currentUserId, players, updatePlayerScore, roomId, currentWord]);
+   
+     setTimeout(() => {
+       setRoundCount(prev => {
+         const nextRound = Math.min(prev + 1, maxRounds);
+         if (nextRound >= maxRounds) {
+           loadNewWord(maxRounds);
+         } else {
+           loadNewWord(nextRound);
+         }
+         return nextRound;
+       });
+     }, 2500);
+   }, [stopTimer, getBasePoints, timeLeft, loadNewWord, playSound, currentUserId, players, updatePlayerScore, roomId, currentWord, maxRounds]);
 
   const handleWrongAnswer = useCallback(async () => {
     playSound('wrong');
