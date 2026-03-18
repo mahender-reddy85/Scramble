@@ -171,7 +171,7 @@ io.on('connection', (socket) => {
       const participants = await pool.query(`
         SELECT gp.*, p.username as player_name
         FROM game_participants gp
-        LEFT JOIN profiles p ON gp.user_id = p.id
+        LEFT JOIN users p ON gp.user_id = p.id
         WHERE gp.room_id = $1
         ORDER BY gp.score DESC
       `, [roomId]);
@@ -240,7 +240,7 @@ io.on('connection', (socket) => {
       const participants = await pool.query(`
         SELECT gp.id, COALESCE(gp.player_name, p.username) as player_name, gp.is_ready, gp.user_id
         FROM game_participants gp
-        LEFT JOIN profiles p ON gp.user_id = p.id
+        LEFT JOIN users p ON gp.user_id = p.id
         WHERE gp.room_id = $1
         ORDER BY gp.joined_at
       `, [roomId]);

@@ -4,9 +4,9 @@ async function initDatabase() {
   try {
     console.log('Initializing database...');
 
-    // Create profiles table
+    // Create users table
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS profiles (
+      CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         username VARCHAR(50) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -22,7 +22,7 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS game_rooms (
         id VARCHAR(100) PRIMARY KEY,
         room_code VARCHAR(10) UNIQUE NOT NULL,
-        created_by UUID REFERENCES profiles(id) ON DELETE CASCADE,
+        created_by UUID REFERENCES users(id) ON DELETE CASCADE,
         difficulty VARCHAR(20) NOT NULL DEFAULT 'easy',
         status VARCHAR(20) NOT NULL DEFAULT 'waiting',
         started_at TIMESTAMP,
@@ -37,7 +37,7 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS game_participants (
         id VARCHAR(100) PRIMARY KEY,
         room_id VARCHAR(100) REFERENCES game_rooms(id) ON DELETE CASCADE,
-        user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         player_name VARCHAR(50) NOT NULL,
         score INTEGER DEFAULT 0,
         current_streak INTEGER DEFAULT 0,
@@ -51,7 +51,7 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS game_events (
         id SERIAL PRIMARY KEY,
         room_id VARCHAR(100) REFERENCES game_rooms(id) ON DELETE CASCADE,
-        user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         event_type VARCHAR(50) NOT NULL,
         current_word VARCHAR(100),
         is_correct BOOLEAN,
@@ -64,7 +64,7 @@ async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS leaderboard_stats (
         id SERIAL PRIMARY KEY,
-        user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         total_score INTEGER DEFAULT 0,
         games_played INTEGER DEFAULT 0,
         games_won INTEGER DEFAULT 0,

@@ -331,7 +331,7 @@ router.get('/rooms', optionalAuth, async (req, res) => {
       SELECT gr.*, p.username as creator_name,
              COUNT(gp.id) as player_count
       FROM game_rooms gr
-      LEFT JOIN profiles p ON gr.created_by = p.id
+      LEFT JOIN users p ON gr.created_by = p.id
       LEFT JOIN game_participants gp ON gr.id = gp.room_id
       WHERE gr.status = 'waiting'
       GROUP BY gr.id, p.username
@@ -643,7 +643,7 @@ router.get('/rooms/:roomId', optionalAuth, async (req, res) => {
     const rooms = await pool.query(`
       SELECT gr.*, p.username as creator_name
       FROM game_rooms gr
-      LEFT JOIN profiles p ON gr.created_by = p.id
+      LEFT JOIN users p ON gr.created_by = p.id
       WHERE gr.id = $1
     `, [roomId]);
 
@@ -654,7 +654,7 @@ router.get('/rooms/:roomId', optionalAuth, async (req, res) => {
     const participants = await pool.query(`
       SELECT gp.id, COALESCE(gp.player_name, p.username) as player_name, gp.is_ready, gp.user_id
       FROM game_participants gp
-      LEFT JOIN profiles p ON gp.user_id = p.id
+      LEFT JOIN users p ON gp.user_id = p.id
       WHERE gp.room_id = $1
       ORDER BY gp.joined_at
     `, [roomId]);
@@ -677,7 +677,7 @@ router.get('/participants/:roomId', optionalAuth, async (req, res) => {
     const participants = await pool.query(`
       SELECT gp.*, p.username, p.avatar_url
       FROM game_participants gp
-      LEFT JOIN profiles p ON gp.user_id = p.id
+      LEFT JOIN users p ON gp.user_id = p.id
       WHERE gp.room_id = $1
       ORDER BY gp.score DESC
     `, [roomId]);

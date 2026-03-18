@@ -23,7 +23,7 @@ router.post('/register', [
   try {
     // Check if user already exists
     const existing = await pool.query(
-      'SELECT id FROM profiles WHERE email = $1 OR username = $2',
+      'SELECT id FROM users WHERE email = $1 OR username = $2',
       [email, username]
     );
 
@@ -36,9 +36,9 @@ router.post('/register', [
 
     const userId = `${Date.now()}`;
 
-    // Insert user into profiles table
+    // Insert user into users table
     await pool.query(
-      'INSERT INTO profiles (id, username, email, password_hash) VALUES ($1, $2, $3, $4)',
+      'INSERT INTO users (id, username, email, password_hash) VALUES ($1, $2, $3, $4)',
       [userId, username, email, hashedPassword]
     );
 
@@ -73,7 +73,7 @@ router.post('/login', [
 
   try {
     const users = await pool.query(
-      'SELECT id, username, password_hash FROM profiles WHERE email = $1',
+      'SELECT id, username, password_hash FROM users WHERE email = $1',
       [email]
     );
 
@@ -115,7 +115,7 @@ router.get('/me', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const result = await pool.query(
-      'SELECT id, username, avatar_url FROM profiles WHERE id = $1',
+      'SELECT id, username, avatar_url FROM users WHERE id = $1',
       [decoded.id]
     );
 
@@ -153,7 +153,7 @@ router.put('/profile', [
     // Check if username is taken by another user
     if (username) {
       const existing = await pool.query(
-        'SELECT id FROM profiles WHERE username = $1 AND id != $2',
+        'SELECT id FROM users WHERE username = $1 AND id != $2',
         [username, decoded.id]
       );
       if (existing.rows.length > 0) {
@@ -163,7 +163,7 @@ router.put('/profile', [
 
     // Update profile
     await pool.query(
-      'UPDATE profiles SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url) WHERE id = $3',
+      'UPDATE users SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url) WHERE id = $3',
       [username, avatar_url, decoded.id]
     );
 
