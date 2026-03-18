@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth.js';
 import gameRoutes from './routes/game.js';
 import pool from './db.js';
@@ -79,9 +80,40 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json());
 
+// ── Rate Limiting ─────────────────────────────────────────────────────────────
+
+// Global limiter: 100 requests per 15 minutes per IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
+// Auth limiter: strict 10 requests per 15 minutes (brute-force protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts, please try again later.' },
+});
+
+// Game limiter: 60 requests per minute (prevents answer spam)
+const gameLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many game actions, slow down!' },
+});
+
+app.use('/api/', globalLimiter);
+
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/game', gameRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/game', gameLimiter, gameRoutes);
 
 // Root route
 app.get('/', (req, res) => {
