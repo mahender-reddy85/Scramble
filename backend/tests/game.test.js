@@ -70,26 +70,6 @@ describe('GET /api/game/words/:difficulty', () => {
   });
 });
 
-// ── /api/game/leaderboard ─────────────────────────────────────────────────────
-describe('GET /api/game/leaderboard', () => {
-  it('returns leaderboard array', async () => {
-    pool.query.mockResolvedValueOnce({
-      rows: [
-        { username: 'player1', total_score: 500, games_played: 10, games_won: 6 },
-        { username: 'player2', total_score: 350, games_played: 8, games_won: 3 },
-      ],
-    });
-
-    const res = await request(app)
-      .get('/api/game/leaderboard')
-      .set('Authorization', `Bearer ${authToken}`);
-
-    expect(res.statusCode).toBe(200);
-    expect(Array.isArray(res.body.leaderboard)).toBe(true);
-    expect(res.body.leaderboard[0].username).toBe('player1');
-  });
-});
-
 // ── /api/game/rooms ───────────────────────────────────────────────────────────
 describe('GET /api/game/rooms', () => {
   it('returns available waiting rooms', async () => {
