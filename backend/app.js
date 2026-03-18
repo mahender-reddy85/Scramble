@@ -34,7 +34,7 @@ export function createApp(io = null) {
   // ── Rate Limiting ──────────────────────────────────────────────────────────
   const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 1000, // Increased from 100 to 1000
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
@@ -43,7 +43,7 @@ export function createApp(io = null) {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: 100, // Increased from 10 to 100
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
@@ -52,7 +52,7 @@ export function createApp(io = null) {
 
   const gameLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 60,
+    max: 200, // Increased from 60 to 200
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
