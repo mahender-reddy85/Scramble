@@ -32,8 +32,7 @@ describe('POST /api/auth/register', () => {
     // No existing user found → empty rows
     pool.query
       .mockResolvedValueOnce({ rows: [] })       // SELECT id FROM users (duplicate check)
-      .mockResolvedValueOnce({ rows: [] })       // INSERT INTO users
-      .mockResolvedValueOnce({ rows: [] });      // INSERT INTO profiles
+      .mockResolvedValueOnce({ rows: [] });       // INSERT INTO users
 
     const res = await request(app)
       .post('/api/auth/register')
