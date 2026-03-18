@@ -2,6 +2,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import pool from './db.js';
 import { createApp } from './app.js';
 

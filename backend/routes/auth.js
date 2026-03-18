@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
+import crypto from 'crypto';
 import pool from '../db.js';
 
 const router = express.Router();
@@ -34,7 +35,7 @@ router.post('/register', [
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const userId = `${Date.now()}`;
+    const userId = crypto.randomUUID();
 
     // Insert user into users table
     await pool.query(
