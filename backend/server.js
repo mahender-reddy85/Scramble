@@ -1,13 +1,9 @@
-import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
-import rateLimit from 'express-rate-limit';
-import authRoutes from './routes/auth.js';
-import gameRoutes from './routes/game.js';
 import pool from './db.js';
+import { createApp } from './app.js';
 
 dotenv.config();
 
@@ -60,70 +56,20 @@ const scrambleWord = (word) => {
   return scrambled === word ? scrambleWord(word) : scrambled;
 };
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
+const io = new Server(http.createServer(), {
   cors: {
-    origin: ["http://localhost:8080", "https://scramble-eta.vercel.app"], // Vite dev server and Vercel production
+    origin: ["http://localhost:8080", "https://scramble-eta.vercel.app"],
     methods: ["GET", "POST"]
   }
 });
 
-app.set('io', io);
+const app = createApp(io);
+const server = http.createServer(app);
 
-// Middleware to attach io to req
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
+// Re-attach io to the real http server
+io.attach(server);
 
-app.use(cors());
-app.use(express.json());
-
-// ── Rate Limiting ─────────────────────────────────────────────────────────────
-
-// Global limiter: 100 requests per 15 minutes per IP
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-});
-
-// Auth limiter: strict 10 requests per 15 minutes (brute-force protection)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many authentication attempts, please try again later.' },
-});
-
-// Game limiter: 60 requests per minute (prevents answer spam)
-const gameLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many game actions, slow down!' },
-});
-
-app.use('/api/', globalLimiter);
-
-// Routes
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/game', gameLimiter, gameRoutes);
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({ message: 'Scramble Game API Server', status: 'running' });
-});
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
+// Root and health routes are registered inside createApp()
 
 // Socket.io for real-time multiplayer
 const rooms = new Map();
