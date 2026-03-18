@@ -67,7 +67,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     });
 
     socketRef.current.on('connect', () => {
-      console.log('Connected to socket in lobby');
       // Join the socket room
       socketRef.current?.emit('join-room', {
         roomId,
@@ -78,7 +77,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     });
 
     socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
-      console.log('Received participantsUpdated event:', updatedPlayers);
       setPlayers(updatedPlayers);
       // Update local ready status if it changed
       const currentPlayer = updatedPlayers.find(p => p.user_id === currentUserId);
@@ -88,18 +86,15 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     });
 
     socketRef.current.on('gameStarting', () => {
-      console.log('Game is starting - showing countdown');
       setGameStarting(true);
       setCountdown(3);
     });
 
     socketRef.current.on('countdown', (data: { countdown: number }) => {
-      console.log('Countdown:', data.countdown);
       setCountdown(data.countdown);
     });
 
     socketRef.current.on('newWord', (data: { word: string; hint: string; scrambled: string }) => {
-      console.log('New word received - starting game', data);
       setInitialWord(data);
       setGameStarted(true);
       setGameStarting(false);
@@ -107,7 +102,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     });
 
     socketRef.current.on('participant-joined', (data: { participants: Player[] }) => {
-      console.log('Received participant-joined event:', data);
       setPlayers(data.participants);
     });
 

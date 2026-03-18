@@ -75,7 +75,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   useEffect(() => {
     // Set initial word if provided from parent
     if (initialWord) {
-      console.log('Setting initial word:', initialWord);
       setCurrentWord(initialWord.word);
       setScrambledWord(initialWord.scrambled);
       setCurrentHint(initialWord.hint);
