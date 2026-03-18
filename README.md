@@ -12,13 +12,12 @@
 
 ## 📖 Project Description
 
-**Scramble** is a fast-paced word-unscrambling game where players race against the clock to decode scrambled letters into the correct word. It supports both **single-player** and **competitive multiplayer** modes. In multiplayer, players join shared rooms, compete over 10 rounds with a live 20-second timer per word, earn streak bonuses, and climb the global leaderboard — all synchronized in real time via **Socket.io**.
+**Scramble** is a fast-paced word-unscrambling game where players race against the clock to decode scrambled letters into the correct word. It supports both **single-player** and **competitive multiplayer** modes. In multiplayer, players join shared rooms, compete over 10 rounds with a live 20-second timer per word, earn streak bonuses, and enjoy real-time gameplay — all synchronized via **Socket.io**.
 
 ### Key Highlights
 
 - 🧩 Three difficulty tiers: **Easy**, **Medium**, and **Hard**
 - ⚡ Real-time multiplayer with Socket.io (room join, ready-up, answer sync, and game-end events)
-- 🏆 Persistent leaderboard with aggregate stats across all sessions
 - 🔐 JWT-based authentication with bcrypt password hashing
 - 💡 Hint system with configurable point penalties
 - 🔥 Streak bonuses for consecutive correct answers
@@ -51,7 +50,8 @@ Scramble/
     │   └── game.js             # /api/game — rooms, participants, events, leaderboard
     ├── middleware/             # JWT auth middleware
     └── scripts/
-        └── init-db.js          # One-time database schema initializer
+        ├── init-db.js          # One-time database schema initializer
+        └── migrate-profiles-to-users.js # Migration script for profiles → users
 ```
 
 ### Data Flow
@@ -117,16 +117,21 @@ VITE_API_URL=http://localhost:3001
 
 > See [Environment Variables](#-environment-variables) for a full reference.
 
-### 4. Initialize the Database
+### 4. Initialize Database
 
 ```sh
 cd backend
 node scripts/init-db.js
 ```
 
-This creates all tables (`profiles`, `game_rooms`, `game_participants`, `game_events`, `leaderboard_stats`).
+This creates all tables (`users`, `game_rooms`, `game_participants`, `game_events`).
 
-### 5. Start the Backend
+> **Migration Note:** If you have an existing database with a `profiles` table, run the migration script first:
+> ```sh
+> npm run migrate
+> ```
+
+### 5. Start Backend
 
 ```sh
 cd backend
@@ -205,12 +210,6 @@ All REST routes are prefixed with `/api`. Protected routes require a `Bearer <to
 | `GET` | `/api/game/participants/:roomId` | ✅ JWT | — | Get participants with live scores |
 | `PUT` | `/api/game/participants/:participantId` | ✅ JWT | `{ score, current_streak }` | Update a participant's score |
 
-### Leaderboard
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/game/leaderboard` | ✅ JWT | Top 50 players with aggregated stats |
-
 ---
 
 ## 🔌 Socket.io Events
@@ -245,7 +244,7 @@ The server uses Socket.io for real-time multiplayer synchronization.
 
 ```sql
 -- User accounts and profiles
-profiles (
+users (
   id            UUID PRIMARY KEY,
   username      VARCHAR(50) UNIQUE NOT NULL,
   email         VARCHAR(255) UNIQUE NOT NULL,
@@ -259,7 +258,7 @@ profiles (
 game_rooms (
   id          VARCHAR(100) PRIMARY KEY,
   room_code   VARCHAR(10) UNIQUE NOT NULL,   -- 4-digit shareable code
-  created_by  UUID → profiles(id),
+  created_by  UUID → users(id),
   difficulty  VARCHAR(20),                   -- 'easy' | 'medium' | 'hard'
   status      VARCHAR(20),                   -- 'waiting' | 'active' | 'finished'
   current_round INTEGER,
@@ -272,7 +271,7 @@ game_rooms (
 game_participants (
   id             VARCHAR(100) PRIMARY KEY,
   room_id        VARCHAR(100) → game_rooms(id),
-  user_id        UUID → profiles(id),
+  user_id        UUID → users(id),
   player_name    VARCHAR(50),
   score          INTEGER DEFAULT 0,
   current_streak INTEGER DEFAULT 0,
@@ -284,23 +283,12 @@ game_participants (
 game_events (
   id           SERIAL PRIMARY KEY,
   room_id      VARCHAR(100) → game_rooms(id),
-  user_id      UUID → profiles(id),
+  user_id      UUID → users(id),
   event_type   VARCHAR(50),         -- e.g. 'answer_submitted'
   current_word VARCHAR(100),
   is_correct   BOOLEAN,
   points_earned INTEGER,
   created_at   TIMESTAMP
-)
-
--- Aggregated leaderboard stats
-leaderboard_stats (
-  id           SERIAL PRIMARY KEY,
-  user_id      UUID → profiles(id),
-  total_score  INTEGER DEFAULT 0,
-  games_played INTEGER DEFAULT 0,
-  games_won    INTEGER DEFAULT 0,
-  created_at   TIMESTAMP,
-  updated_at   TIMESTAMP
 )
 ```
 
@@ -330,9 +318,9 @@ The API is protected by [express-rate-limit](https://github.com/express-rate-lim
 
 | Limiter | Applies To | Window | Max Requests | Purpose |
 |---------|-----------|--------|-------------|----------|
-| **Global** | All `/api/*` routes | 15 min | 100 | General API abuse prevention |
-| **Auth** | `/api/auth/*` | 15 min | 10 | Brute-force / credential stuffing protection |
-| **Game** | `/api/game/*` | 1 min | 60 | Prevent answer spam & flooding |
+| **Global** | All `/api/*` routes | 15 min | 1000 | General API abuse prevention |
+| **Auth** | `/api/auth/*` | 15 min | 100 | Brute-force / credential stuffing protection |
+| **Game** | `/api/game/*` | 1 min | 200 | Prevent answer spam & flooding |
 
 When a limit is exceeded the server returns **HTTP 429 Too Many Requests** with a JSON error message and standard `RateLimit-*` headers.
 
@@ -378,6 +366,8 @@ When a limit is exceeded the server returns **HTTP 429 Too Many Requests** with 
 |---------|-------------|
 | `npm run dev` | Start with nodemon (auto-reload on save) |
 | `npm start` | Start in production mode |
+| `npm run migrate` | Migrate existing profiles table to users table |
+| `npm run init-db` | Initialize fresh database schema |
 
 ---
 

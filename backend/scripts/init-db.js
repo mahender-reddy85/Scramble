@@ -60,19 +60,6 @@ async function initDatabase() {
       );
     `);
 
-    // Create leaderboard_stats table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS leaderboard_stats (
-        id SERIAL PRIMARY KEY,
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        total_score INTEGER DEFAULT 0,
-        games_played INTEGER DEFAULT 0,
-        games_won INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
     console.log('Database initialized successfully!');
   } catch (error) {
     console.error('Error initializing database:', error);

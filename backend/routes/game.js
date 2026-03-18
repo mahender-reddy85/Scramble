@@ -309,21 +309,6 @@ if (!wordBanks[difficulty]) {
 res.json({ words: wordBanks[difficulty] });
 });
 
-// Get leaderboard
-router.get('/leaderboard', async (req, res) => {
-  try {
-    const rows = await pool.query(`
-      SELECT * FROM leaderboard_stats
-      ORDER BY total_score DESC
-      LIMIT 50
-    `);
-    res.json({ leaderboard: rows.rows });
-  } catch (error) {
-    console.error('Leaderboard error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
 // Get game rooms
 router.get('/rooms', optionalAuth, async (req, res) => {
   try {

@@ -59,7 +59,6 @@ async function migrateProfilesToUsers() {
       await pool.query('ALTER TABLE game_rooms DROP CONSTRAINT IF EXISTS game_rooms_created_by_fkey');
       await pool.query('ALTER TABLE game_participants DROP CONSTRAINT IF EXISTS game_participants_user_id_fkey');
       await pool.query('ALTER TABLE game_events DROP CONSTRAINT IF EXISTS game_events_user_id_fkey');
-      await pool.query('ALTER TABLE leaderboard_stats DROP CONSTRAINT IF EXISTS leaderboard_stats_user_id_fkey');
       
       console.log('Dropped old foreign key constraints');
       
@@ -67,7 +66,6 @@ async function migrateProfilesToUsers() {
       await pool.query('ALTER TABLE game_rooms ADD CONSTRAINT game_rooms_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE');
       await pool.query('ALTER TABLE game_participants ADD CONSTRAINT game_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE');
       await pool.query('ALTER TABLE game_events ADD CONSTRAINT game_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE');
-      await pool.query('ALTER TABLE leaderboard_stats ADD CONSTRAINT leaderboard_stats_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE');
       
       console.log('Added new foreign key constraints referencing users table');
       
