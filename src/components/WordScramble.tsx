@@ -7,7 +7,6 @@ import { apiClient } from '@/integrations/apiClient';
 import { useTheme } from './ThemeProvider';
 import MultiplayerLobby from './MultiplayerLobby';
 import UserMenu from './UserMenu';
-import SearchBar from './SearchBar';
 import { useNavigate } from 'react-router-dom';
 
 interface WordItem {
@@ -274,14 +273,6 @@ export default function WordScramble() {
   const timerPercentage = (timeLeft / 15) * 100;
   const isLowTime = timeLeft <= 5;
 
-  const handleSearch = (query: string) => {
-    if (query.trim()) {
-      toast.info(`Searching for: ${query.trim()}`);
-      // TODO: Implement actual search functionality
-      console.log('Search query:', query.trim());
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background relative">
       <UserMenu />
@@ -298,15 +289,6 @@ export default function WordScramble() {
             <div className="text-center space-y-4">
               <h1 className="text-5xl font-bold text-foreground tracking-tight">Word Scramble</h1>
               <p className="text-xl text-muted-foreground">Challenge your word-solving abilities!</p>
-            </div>
-
-            {/* Search Bar */}
-            <div className="mb-6">
-              <SearchBar 
-                onSearch={handleSearch}
-                placeholder="Search for games, players, or help..."
-                className="w-full"
-              />
             </div>
 
             <div className="space-y-3">

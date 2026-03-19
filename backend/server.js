@@ -5,57 +5,9 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import pool from './db.js';
 import { createApp } from './app.js';
+import { wordBanks, scrambleWord } from './utils/wordBanks.js';
 
 dotenv.config();
-
-const wordBanks = {
-  easy: [
-    { word: 'APPLE', hint: 'A common fruit' },
-    { word: 'HOUSE', hint: 'A place to live' },
-    { word: 'WATER', hint: 'Essential for life' },
-    { word: 'MUSIC', hint: 'Sound that entertains' },
-    { word: 'LIGHT', hint: 'Opposite of dark' },
-    { word: 'HAPPY', hint: 'A positive emotion' },
-    { word: 'PHONE', hint: 'Communication device' },
-    { word: 'CHAIR', hint: 'Furniture to sit on' },
-    { word: 'PAPER', hint: 'Used for writing' },
-    { word: 'CLOUD', hint: 'Floats in the sky' },
-  ],
-  medium: [
-    { word: 'BUTTERFLY', hint: 'Colorful insect' },
-    { word: 'COMPUTER', hint: 'Electronic device' },
-    { word: 'MOUNTAIN', hint: 'High landform' },
-    { word: 'HOSPITAL', hint: 'Medical facility' },
-    { word: 'ELEPHANT', hint: 'Large mammal' },
-    { word: 'CALENDAR', hint: 'Tracks dates' },
-    { word: 'QUESTION', hint: 'Seeks an answer' },
-    { word: 'TREASURE', hint: 'Valuable items' },
-    { word: 'KEYBOARD', hint: 'Input device' },
-    { word: 'LANGUAGE', hint: 'Form of communication' },
-  ],
-  hard: [
-    { word: 'ACHIEVEMENT', hint: 'Accomplishment' },
-    { word: 'PSYCHOLOGY', hint: 'Study of mind' },
-    { word: 'PHILOSOPHY', hint: 'Study of wisdom' },
-    { word: 'ATMOSPHERE', hint: 'Layer of gases' },
-    { word: 'TECHNOLOGY', hint: 'Modern innovation' },
-    { word: 'INCREDIBLE', hint: 'Hard to believe' },
-    { word: 'THROUGHOUT', hint: 'From start to end' },
-    { word: 'VOCABULARY', hint: 'Collection of words' },
-    { word: 'MYSTERIOUS', hint: 'Full of mystery' },
-    { word: 'BENEFICIAL', hint: 'Providing advantage' },
-  ]
-};
-
-const scrambleWord = (word) => {
-  const letters = word.split('');
-  for (let i = letters.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [letters[i], letters[j]] = [letters[j], letters[i]];
-  }
-  const scrambled = letters.join('');
-  return scrambled === word ? scrambleWord(word) : scrambled;
-};
 
 const io = new Server(http.createServer(), {
   cors: {

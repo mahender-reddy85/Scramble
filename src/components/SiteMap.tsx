@@ -1,4 +1,4 @@
-import { Home, Settings, HelpCircle, Users, Search } from 'lucide-react';
+import { Home, Settings, HelpCircle, Users } from 'lucide-react';
 
 export default function SiteMap() {
   return (
@@ -89,14 +89,14 @@ export default function SiteMap() {
           {/* Search */}
           <div className="bg-card rounded-lg p-6 border">
             <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Search
+              <Home className="h-5 w-5" />
+              Navigation
             </h2>
             <p className="text-muted-foreground mb-4">
-              Use the search bar to find games, players, or specific topics.
+              Use the site map to navigate through different sections of the game.
             </p>
             <div className="text-sm text-muted-foreground">
-              <p>Search functionality available on all pages.</p>
+              <p>All sections are accessible from the main menu.</p>
             </div>
           </div>
         </div>
