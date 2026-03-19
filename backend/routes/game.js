@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -347,7 +348,7 @@ router.post('/rooms', authenticateToken, async (req, res) => {
       exists = check.rows.length > 0;
     }
 
-    const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const roomId = crypto.randomUUID();
 
     await pool.query(
       'INSERT INTO game_rooms (id, room_code, created_by, difficulty) VALUES ($1, $2, $3, $4)',
@@ -399,7 +400,7 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
     }
 
     // Join room
-    const participantId = `participant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const participantId = crypto.randomUUID();
     await pool.query(
       'INSERT INTO game_participants (id, room_id, user_id, player_name) VALUES ($1, $2, $3, $4)',
       [participantId, roomId, userId, playerName]
@@ -702,7 +703,7 @@ router.post('/events', authenticateToken, async (req, res) => {
   const is_correct = isCorrect;
   const points_earned = points;
 
-  const eventId = `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const eventId = crypto.randomUUID();
 
   try {
     await pool.query(
