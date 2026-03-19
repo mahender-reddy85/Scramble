@@ -102,4 +102,67 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Accessibility improvements */
+  *:focus-visible {
+    @apply outline-2 outline-ring outline-offset-2;
+  }
+  
+  *:focus {
+    @apply outline-2 outline-ring outline-offset-2;
+  }
+  
+  /* Ensure button focus is always visible */
+  button:focus,
+  button:focus-visible {
+    outline: 2px solid !important;
+    outline-offset: 2px !important;
+  }
+  
+  /* Skip to main content link for screen readers */
+  .skip-link {
+    @apply absolute -top-full left-0 bg-primary text-primary-foreground px-4 py-2 z-50;
+    transition: top 0.3s;
+  }
+  
+  .skip-link:focus {
+    @apply top-0;
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 0%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 0%;
+      --primary: 0 0% 0%;
+      --primary-foreground: 0 0% 100%;
+      --border: 0 0% 0%;
+      --muted-foreground: 0 0% 0%;
+    }
+    
+    .dark {
+      --background: 0 0% 0%;
+      --foreground: 0 0% 100%;
+      --card: 0 0% 0%;
+      --card-foreground: 0 0% 100%;
+      --primary: 0 0% 100%;
+      --primary-foreground: 0 0% 0%;
+      --border: 0 0% 100%;
+      --muted-foreground: 0 0% 100%;
+    }
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

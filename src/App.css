@@ -40,3 +40,18 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Accessibility improvements */
+.read-the-docs {
+  color: #666; /* Increased contrast for better readability */
+}
+
+@media (prefers-contrast: high) {
+  .read-the-docs {
+    color: #000; /* High contrast mode */
+  }
+  
+  .dark .read-the-docs {
+    color: #fff; /* High contrast dark mode */
+  }
+}

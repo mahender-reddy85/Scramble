@@ -7,6 +7,7 @@ import { apiClient } from '@/integrations/apiClient';
 import { useTheme } from './ThemeProvider';
 import MultiplayerLobby from './MultiplayerLobby';
 import UserMenu from './UserMenu';
+import SearchBar from './SearchBar';
 import { useNavigate } from 'react-router-dom';
 
 interface WordItem {
@@ -273,6 +274,14 @@ export default function WordScramble() {
   const timerPercentage = (timeLeft / 15) * 100;
   const isLowTime = timeLeft <= 5;
 
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      toast.info(`Searching for: ${query.trim()}`);
+      // TODO: Implement actual search functionality
+      console.log('Search query:', query.trim());
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background relative">
       <UserMenu />
@@ -291,19 +300,28 @@ export default function WordScramble() {
               <p className="text-xl text-muted-foreground">Challenge your word-solving abilities!</p>
             </div>
 
+            {/* Search Bar */}
+            <div className="mb-6">
+              <SearchBar 
+                onSearch={handleSearch}
+                placeholder="Search for games, players, or help..."
+                className="w-full"
+              />
+            </div>
+
             <div className="space-y-3">
-              <h3 className="font-semibold text-foreground text-center">Choose Game Mode:</h3>
+              <h3 className="font-semibold text-foreground text-center text-lg">Choose Game Mode:</h3>
               <div className="flex gap-3">
                 <Button
                   variant={gameMode === 'single' ? 'default' : 'outline'}
-                  className="flex-1 rounded-xl"
+                  className="flex-1 rounded-xl text-base"
                   onClick={() => setGameMode('single')}
                 >
                   Single Player
                 </Button>
                 <Button
                   variant={gameMode === 'multi' ? 'default' : 'outline'}
-                  className="flex-1 rounded-xl"
+                  className="flex-1 rounded-xl text-base"
                   onClick={() => setGameMode('multi')}
                 >
                   Multiplayer
@@ -311,11 +329,11 @@ export default function WordScramble() {
               </div>
             </div>
 
-            <div className="space-y-4 text-muted-foreground">
+            <div className="space-y-4 text-foreground text-base">
               <div className="bg-muted rounded-xl p-4 space-y-2">
-                <h3 className="font-semibold text-foreground">🎯 How to Play:</h3>
-                <ul className="space-y-1 text-sm list-disc list-inside">
-                  <li>Unscramble the letters to form the correct word</li>
+                <h3 className="font-semibold text-foreground text-lg">🎯 How to Play:</h3>
+                <ul className="space-y-2 text-base list-disc list-inside">
+                  <li>Unscramble letters to form the correct word</li>
                   <li>You have 15 seconds for each word</li>
                   <li>Earn points based on difficulty and speed</li>
                   <li>Build streaks for bonus points</li>
@@ -323,8 +341,8 @@ export default function WordScramble() {
               </div>
 
               <div className="bg-muted rounded-xl p-4 space-y-2">
-                <h3 className="font-semibold text-foreground">🏆 Scoring:</h3>
-                <ul className="space-y-1 text-sm list-disc list-inside">
+                <h3 className="font-semibold text-foreground text-lg">🏆 Scoring:</h3>
+                <ul className="space-y-2 text-base list-disc list-inside">
                   <li>Easy: 5 points</li>
                   <li>Medium: 8 points</li>
                   <li>Hard: 10 points</li>
