@@ -38,6 +38,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
   const [showHint, setShowHint] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [gameEnded, setGameEnded] = useState(false);
   const [waitingForOthers, setWaitingForOthers] = useState(false);
