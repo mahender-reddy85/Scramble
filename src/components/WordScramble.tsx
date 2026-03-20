@@ -76,6 +76,9 @@ export default function WordScramble() {
 
   // Play sound effect
   const playSound = useCallback((type: 'correct' | 'wrong' | 'warning') => {
+    const soundEnabled = localStorage.getItem('sound-enabled') !== 'false';
+    if (!soundEnabled) return;
+
     const ctx = audioContextRef.current;
     if (!ctx) return;
 

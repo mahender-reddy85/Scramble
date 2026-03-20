@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { apiClient } from '@/integrations/apiClient';
 import { toast } from 'sonner';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 
 interface User {
@@ -23,6 +23,10 @@ export default function UserMenu() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    const saved = localStorage.getItem('sound-enabled');
+    return saved === null ? true : saved === 'true';
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -68,6 +72,13 @@ export default function UserMenu() {
     }
   };
 
+  const toggleSound = () => {
+    const newVal = !soundEnabled;
+    setSoundEnabled(newVal);
+    localStorage.setItem('sound-enabled', String(newVal));
+    toast.success(`Sound ${newVal ? 'Enabled' : 'Disabled'}`);
+  };
+
   if (isLoading) {
     return null; // Or a loading spinner
   }
@@ -101,6 +112,19 @@ export default function UserMenu() {
                 <>
                   <Moon className="mr-2 h-4 w-4" />
                   <span>Dark Mode</span>
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={toggleSound}>
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="mr-2 h-4 w-4" />
+                  <span>Sound On</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="mr-2 h-4 w-4" />
+                  <span>Sound Off</span>
                 </>
               )}
             </DropdownMenuItem>

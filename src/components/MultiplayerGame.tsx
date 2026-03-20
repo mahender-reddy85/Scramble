@@ -127,6 +127,9 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   }, [initialWord]);
 
   const playSound = useCallback((type: 'correct' | 'wrong' | 'warning') => {
+    const soundEnabled = localStorage.getItem('sound-enabled') !== 'false';
+    if (!soundEnabled) return;
+
     const ctx = audioContextRef.current;
     if (!ctx) return;
 
