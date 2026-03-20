@@ -337,8 +337,10 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
    }, [currentWord, stopTimer, loadNewWord, currentUserId, players, updatePlayerScore, maxRounds]);
 
   const getBasePoints = useCallback(() => {
-    const pointsMap = { easy: 5, medium: 8, hard: 10 };
-    return pointsMap[difficulty];
+    // Ensure difficulty is a string and handle case normalization
+    const diff = String(difficulty || 'easy').toLowerCase();
+    const pointsMap: Record<string, number> = { easy: 5, medium: 8, hard: 10 };
+    return pointsMap[diff] || 5;
   }, [difficulty]);
 
   const handleCorrectAnswer = useCallback(async () => {
@@ -348,12 +350,17 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     const currentPlayer = players.find(p => p.user_id === currentUserId);
     if (!currentPlayer) return;
 
-    const basePoints = getBasePoints() || 5;
-    const currentStreak = typeof currentPlayer.current_streak === 'number' ? currentPlayer.current_streak : 0;
-    const newStreak = currentStreak + 1;
+    const basePoints = Number(getBasePoints()) || 5;
+    const current_s = Number(currentPlayer.current_streak);
+    const validCurrentStreak = isNaN(current_s) ? 0 : current_s;
+    const newStreak = validCurrentStreak + 1;
     const streakBonus = newStreak * 3;
-    const timeBonus = typeof timeLeft === 'number' ? timeLeft : 0;
-    const totalPoints = basePoints + streakBonus + timeBonus;
+    const timeVal = Number(timeLeft);
+    const timeBonus = isNaN(timeVal) ? 0 : timeVal;
+    
+    // Final defensive sum
+    let totalPoints = basePoints + streakBonus + timeBonus;
+    if (isNaN(totalPoints)) totalPoints = 10; // Extreme fallback
     
     await updatePlayerScore(totalPoints, newStreak);
     setFeedback({ message: `Correct! +${totalPoints} points`, type: 'success' });
@@ -554,7 +561,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-foreground">#{index + 1}</span>
                   <span className="text-foreground">{player.player_name}</span>
-                  {player.user_id === currentUserId && <span className="text-xs text-muted-foreground">(You)</span>}
                 </div>
                 <div className="text-xl font-bold text-foreground">{player.score}</div>
               </div>
@@ -603,7 +609,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <span className={`font-bold text-sm sm:text-base text-foreground truncate ${player.user_id === currentUserId ? 'max-w-[100px]' : 'max-w-[120px]'}`}>{player.player_name}</span>
-                  {player.user_id === currentUserId && <span className="text-[10px] text-primary font-bold uppercase px-1.5 py-0.5 bg-primary/15 rounded-md">You</span>}
                 </div>
                 <span className="text-[10px] sm:text-xs text-muted-foreground">Streak: {player.current_streak}</span>
               </div>
