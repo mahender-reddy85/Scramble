@@ -207,26 +207,38 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('player-finished', async (data) => {
+const playerFinishedStatus = new Map(); // RoomId -> Map(UserId -> Boolean)
+
+socket.on('player-finished', async (data) => {
     const { roomId, userId } = data;
 
     try {
-      // Record completion in database (can use rounds_completed column)
-      await pool.query(
-        'UPDATE game_participants SET rounds_completed = 10 WHERE room_id = $1 AND user_id = $2',
-        [roomId, userId]
-      );
+      // Record completion in memory (resilient to DB failure)
+      if (!playerFinishedStatus.has(roomId)) {
+        playerFinishedStatus.set(roomId, new Map());
+      }
+      playerFinishedStatus.get(roomId).set(userId, true);
 
-      // Get count of players and finished players
+      // Record completion in database (still attempted)
+      try {
+        await pool.query(
+          'UPDATE game_participants SET rounds_completed = 10 WHERE room_id = $1 AND user_id = $2',
+          [roomId, userId]
+        );
+      } catch (dbErr) {
+        console.error('DB update rounds_completed failed, falling back to memory:', dbErr.message);
+      }
+
+      // Check consensus
       const roomPlayers = await pool.query(
-        'SELECT user_id, rounds_completed FROM game_participants WHERE room_id = $1',
+        'SELECT user_id FROM game_participants WHERE room_id = $1',
         [roomId]
       );
 
-      const allFinished = roomPlayers.rows.every(p => p.rounds_completed >= 10);
+      const finishedInRoom = playerFinishedStatus.get(roomId);
+      const allDone = roomPlayers.rows.every(p => finishedInRoom.get(p.user_id));
       
-      if (allFinished) {
-        // Final scores
+      if (allDone) {
         const participants = await pool.query(`
           SELECT gp.*, p.username as player_name
           FROM game_participants gp
@@ -237,21 +249,23 @@ io.on('connection', (socket) => {
 
         const winner = participants.rows[0];
         
-        // Final game status update
-        await pool.query(
-          'UPDATE game_rooms SET status = $1, finished_at = NOW() WHERE id = $2',
-          ['finished', roomId]
-        );
+        try {
+          await pool.query(
+            'UPDATE game_rooms SET status = $1, finished_at = NOW() WHERE id = $2',
+            ['finished', roomId]
+          );
+        } catch (dbErr) { console.error('Failed to update room status:', dbErr.message); }
 
         io.to(roomId).emit('game-ended', { winner, participants: participants.rows });
+        playerFinishedStatus.delete(roomId); // Clean up
       } else {
-        // Just notify this specific user they are waiting
         socket.emit('waiting-for-others');
-        // Optionally notify others that a player is waiting
         socket.to(roomId).emit('player-waiting', { userId });
       }
     } catch (error) {
       console.error('Player finished error:', error);
+      // Even if logic fails, let's at least tell the user they are waiting
+      socket.emit('waiting-for-others');
     }
   });
 

@@ -402,21 +402,29 @@ router.put('/participants/:participantId', authenticateToken, async (req, res) =
 
 // Log game event
 router.post('/events', authenticateToken, async (req, res) => {
-  const { roomId, userId, word, isCorrect, points } = req.body;
+  const { 
+    roomId, room_id, 
+    userId, user_id, 
+    word, current_word, 
+    isCorrect, is_correct, 
+    points, points_earned,
+    event_type
+  } = req.body;
 
-  const room_id = roomId;
-  const user_id = userId;
-  const current_word = word;
-  const is_correct = isCorrect;
-  const points_earned = points;
+  const real_room_id = roomId || room_id;
+  const real_user_id = userId || user_id;
+  const real_wordBuffer = word || current_word;
+  const real_is_correct = isCorrect !== undefined ? isCorrect : is_correct;
+  const real_points = points !== undefined ? points : points_earned;
+  const real_event_type = event_type || 'answer_submitted';
 
   const eventId = crypto.randomUUID();
 
   try {
     await pool.query(
       `INSERT INTO game_events (id, room_id, user_id, event_type, current_word, is_correct, points_earned)
-       VALUES ($1, $2, $3, 'answer_submitted', $4, $5, $6)`,
-      [eventId, room_id, user_id, current_word, is_correct, points_earned]
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [eventId, real_room_id, real_user_id, real_event_type, real_wordBuffer, real_is_correct, real_points]
     );
 
     res.json({ success: true });

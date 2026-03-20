@@ -359,12 +359,12 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     isSendingAnswerEventRef.current = true;
     try {
       await apiClient.post('/api/game/events', {
-        room_id: roomId,
-        user_id: currentUserId,
+        roomId: roomId,
+        userId: currentUserId,
         event_type: 'answer',
-        current_word: currentWord,
-        is_correct: true,
-        points_earned: totalPoints
+        word: currentWord,
+        isCorrect: true,
+        points: totalPoints
       });
       isSendingAnswerEventRef.current = false;
     } catch (error) {
@@ -401,11 +401,11 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     isSendingAnswerEventRef.current = true;
     try {
       await apiClient.post('/api/game/events', {
-        room_id: roomId,
-        user_id: currentUserId,
-        current_word: currentWord,
-        is_correct: false,
-        points_earned: 0
+        roomId: roomId,
+        userId: currentUserId,
+        word: currentWord,
+        isCorrect: false,
+        points: 0
       });
       isSendingAnswerEventRef.current = false;
     } catch (error) {
@@ -452,7 +452,8 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       
       const currentPlayer = players.find(p => p.user_id === currentUserId);
       if (currentPlayer) {
-        await updatePlayerScore(-penalty, currentPlayer.current_streak);
+        // Don't await here to prevent UI blocking
+        updatePlayerScore(-penalty, currentPlayer.current_streak).catch(console.error);
       }
 
       toast.warning(`Hint used! -${penalty} points`, {
