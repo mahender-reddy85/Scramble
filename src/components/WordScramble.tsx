@@ -182,11 +182,15 @@ export default function WordScramble() {
   const handleCorrectAnswer = useCallback(() => {
     stopTimer();
     playSound('correct');
-    const basePoints = getBasePoints();
-    const newStreak = streak + 1;
+    const basePoints = Number(getBasePoints()) || 5;
+    const currentStreak = Number(streak) || 0;
+    const newStreak = currentStreak + 1;
     const streakBonus = newStreak * 3;
-    const timeBonus = timeLeft;
-    const totalPoints = basePoints + streakBonus + timeBonus;
+    const timeVal = Number(timeLeft);
+    const timeBonus = isNaN(timeVal) ? 0 : timeVal;
+    
+    let totalPoints = basePoints + streakBonus + timeBonus;
+    if (isNaN(totalPoints)) totalPoints = 10;
     
     setScore(prev => prev + totalPoints);
     setStreak(newStreak);
