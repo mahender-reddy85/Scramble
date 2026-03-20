@@ -525,19 +525,24 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   }
 
   if (gameEnded && winner) {
+    const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+    const topScore = sortedPlayers[0]?.score || 0;
+    const winners = sortedPlayers.filter(p => p.score === topScore);
+    const isTie = winners.length > 1;
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-5">
         <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
           <div className="text-center space-y-4">
             <h1 className="text-3xl sm:text-5xl font-bold text-foreground">Game Over!</h1>
             <div className="text-xl sm:text-2xl font-semibold text-primary">
-              {winner.user_id === currentUserId ? "You Won!" : `${winner.player_name} Wins!`}
+              {isTie ? "It's a Tie!" : (winners[0].user_id === currentUserId ? "You Won!" : `${winners[0].player_name} Wins!`)}
             </div>
           </div>
 
           <div className="space-y-3">
             <h3 className="font-semibold text-center text-foreground">Final Scores</h3>
-            {players.map((player, index) => (
+            {sortedPlayers.map((player, index) => (
               <div 
                 key={player.id}
                 className={`flex justify-between items-center p-4 rounded-xl border ${
