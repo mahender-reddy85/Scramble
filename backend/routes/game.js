@@ -350,6 +350,42 @@ router.put('/participants/:participantId', authenticateToken, async (req, res) =
   }
 });
 
+// Update score in database and broadcast to other players
+router.post('/update-db', optionalAuth, async (req, res) => {
+  const { roomId, userId, points, streak } = req.body;
+  
+  try {
+    const numPoints = Number(points) || 0;
+    const numStreak = Number(streak) || 0;
+    
+    // Update score in database
+    await pool.query(
+      'UPDATE game_participants SET score = score + $1, current_streak = $2 WHERE room_id = $3 AND user_id = $4',
+      [numPoints, numStreak, roomId, userId]
+    );
+    
+    // Get updated participants to broadcast
+    const participants = await pool.query(`
+      SELECT gp.*, COALESCE(p.username, gp.player_name) as player_name
+      FROM game_participants gp
+      LEFT JOIN users p ON gp.user_id = p.id
+      WHERE gp.room_id = $1
+      ORDER BY gp.score DESC
+    `, [roomId]);
+    
+    // Broadcast via socketio
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(roomId).emit('participantsUpdated', participants.rows);
+    }
+    
+    res.json({ success: true, participants: participants.rows });
+  } catch (error) {
+    console.error('Update score error:', error);
+    res.status(500).json({ error: 'Failed to update score' });
+  }
+});
+
 // Log game event
 router.post('/events', authenticateToken, async (req, res) => {
   const { 
