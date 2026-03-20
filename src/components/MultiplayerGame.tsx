@@ -101,6 +101,9 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
         setPlayers(updatedPlayers);
       });
+
+      // Also load initial player state via REST to ensure we have data immediately
+      loadPlayers();
     }
 
     return () => {
@@ -205,7 +208,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   }, [currentUserId, players]);
 
   const loadNewWord = useCallback(async (currentRound: number) => {
-      if (currentRound >= maxRounds) {
+      if (currentRound > maxRounds) {
         return;
       }
 
