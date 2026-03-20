@@ -236,7 +236,12 @@ socket.on('player-finished', async (data) => {
       );
 
       const finishedInRoom = playerFinishedStatus.get(roomId);
-      const allDone = roomPlayers.rows.every(p => finishedInRoom.get(p.user_id));
+      const allDone = roomPlayers.rows.length > 0 && roomPlayers.rows.every(p => {
+        const pid = String(p.user_id);
+        return finishedInRoom.get(pid) === true;
+      });
+      
+      console.log(`Room ${roomId}: ${finishedInRoom.size}/${roomPlayers.rows.length} players finished. allDone: ${allDone}`);
       
       if (allDone) {
         const participants = await pool.query(`

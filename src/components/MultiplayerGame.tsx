@@ -348,10 +348,11 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     const currentPlayer = players.find(p => p.user_id === currentUserId);
     if (!currentPlayer) return;
 
-    const basePoints = getBasePoints();
-    const newStreak = currentPlayer.current_streak + 1;
+    const basePoints = getBasePoints() || 5;
+    const currentStreak = typeof currentPlayer.current_streak === 'number' ? currentPlayer.current_streak : 0;
+    const newStreak = currentStreak + 1;
     const streakBonus = newStreak * 3;
-    const timeBonus = timeLeft;
+    const timeBonus = typeof timeLeft === 'number' ? timeLeft : 0;
     const totalPoints = basePoints + streakBonus + timeBonus;
     
     await updatePlayerScore(totalPoints, newStreak);
