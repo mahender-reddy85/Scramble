@@ -236,43 +236,66 @@ socket.on('player-finished', async (data) => {
       );
 
       const finishedInRoom = playerFinishedStatus.get(roomId);
-      const allDone = roomPlayers.rows.length > 0 && roomPlayers.rows.every(p => {
-        const pid = String(p.user_id);
-        return finishedInRoom.get(pid) === true;
-      });
+      const finishedUserIds = Array.from(finishedInRoom.keys()).map(id => String(id).toLowerCase());
+      const participantUserIds = roomPlayers.rows.map(p => String(p.user_id).toLowerCase());
       
-      console.log(`Room ${roomId}: ${finishedInRoom.size}/${roomPlayers.rows.length} players finished. allDone: ${allDone}`);
+      // consensus: every participant in the DB must be in the "finished" memory map
+      const allDone = participantUserIds.length > 0 && participantUserIds.every(id => finishedUserIds.includes(id));
+      
+      console.log(`Room ${roomId}: Participants [${participantUserIds}], Finished [${finishedUserIds}]. allDone: ${allDone}`);
       
       if (allDone) {
-        const participants = await pool.query(`
-          SELECT gp.*, p.username as player_name
-          FROM game_participants gp
-          LEFT JOIN users p ON gp.user_id = p.id
-          WHERE gp.room_id = $1
-          ORDER BY gp.score DESC
-        `, [roomId]);
-
-        const winner = participants.rows[0];
-        
-        try {
-          await pool.query(
-            'UPDATE game_rooms SET status = $1, finished_at = NOW() WHERE id = $2',
-            ['finished', roomId]
-          );
-        } catch (dbErr) { console.error('Failed to update room status:', dbErr.message); }
-
-        io.to(roomId).emit('game-ended', { winner, participants: participants.rows });
-        playerFinishedStatus.delete(roomId); // Clean up
+        await endGame(roomId, io);
       } else {
         socket.emit('waiting-for-others');
         socket.to(roomId).emit('player-waiting', { userId });
+        
+        // Safety fallback: if anyone is stuck for more than 15s after someone finished
+        if (!finishedInRoom.get('end_timeout_set')) {
+          finishedInRoom.set('end_timeout_set', true);
+          setTimeout(async () => {
+             // Re-check if it's still ongoing
+             const status = playerFinishedStatus.get(roomId);
+             if (status) {
+                console.log(`Room ${roomId}: Safety timeout reached. Ending game for all.`);
+                await endGame(roomId, io);
+             }
+          }, 15000); // 15 seconds safety timeout
+        }
       }
     } catch (error) {
       console.error('Player finished error:', error);
-      // Even if logic fails, let's at least tell the user they are waiting
       socket.emit('waiting-for-others');
     }
   });
+
+async function endGame(roomId, io) {
+  try {
+     const participants = await pool.query(`
+        SELECT gp.*, p.username as player_name
+        FROM game_participants gp
+        LEFT JOIN users p ON gp.user_id = p.id
+        WHERE gp.room_id = $1
+        ORDER BY gp.score DESC
+     `, [roomId]);
+
+     if (participants.rows.length === 0) return;
+
+     const winner = participants.rows[0];
+     
+     try {
+       await pool.query(
+         'UPDATE game_rooms SET status = $1, finished_at = NOW() WHERE id = $2',
+         ['finished', roomId]
+       );
+     } catch (dbErr) { console.error('Failed to update room status:', dbErr.message); }
+
+     io.to(roomId).emit('game-ended', { winner, participants: participants.rows });
+     playerFinishedStatus.delete(roomId);
+  } catch (err) {
+    console.error('End game logic failure:', err);
+  }
+}
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
