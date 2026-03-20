@@ -41,6 +41,7 @@ async function initDatabase() {
         player_name VARCHAR(50) NOT NULL,
         score INTEGER DEFAULT 0,
         current_streak INTEGER DEFAULT 0,
+        rounds_completed INTEGER DEFAULT 0,
         is_ready BOOLEAN DEFAULT FALSE,
         joined_at TIMESTAMP DEFAULT NOW()
       );

@@ -38,9 +38,9 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
   const [showHint, setShowHint] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
-  const [players, setPlayers] = useState<Player[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [gameEnded, setGameEnded] = useState(false);
+  const [waitingForOthers, setWaitingForOthers] = useState(false);
   const [winner, setWinner] = useState<Player | null>(null);
   const [roundCount, setRoundCount] = useState(0);
   const maxRounds = 10;
@@ -54,23 +54,59 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   const playerNameRef = useRef<string>('');
 
   useEffect(() => {
+    // Audio Context
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
 
+    // User ID
     const token = localStorage.getItem('token');
+    let userId = 'anonymous';
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        setCurrentUserId(payload.id || payload.user?.id || 'anonymous');
+        userId = payload.id || payload.user?.id || 'anonymous';
+        setCurrentUserId(userId);
       } catch (error) {
         console.error('Error decoding token:', error);
         setCurrentUserId('anonymous');
       }
     }
 
+    // Socket Setup
+    if (roomId) {
+      socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
+        query: { roomId, userId }
+      });
+
+      socketRef.current.on('connect', () => {
+        socketRef.current?.emit('join-room', {
+          roomId,
+          userId,
+          playerName: playerNameRef.current,
+          token
+        });
+      });
+
+      socketRef.current.on('waiting-for-others', () => {
+        setWaitingForOthers(true);
+      });
+
+      socketRef.current.on('game-ended', (data: { winner: Player, participants: Player[] }) => {
+        setWinner(data.winner);
+        setPlayers(data.participants);
+        setGameEnded(true);
+        setWaitingForOthers(false);
+      });
+
+      socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
+        setPlayers(updatedPlayers);
+      });
+    }
+
     return () => {
       audioContextRef.current?.close();
+      socketRef.current?.disconnect();
     };
-  }, []);
+  }, [roomId]);
 
   useEffect(() => {
     // Set initial word if provided from parent
@@ -247,31 +283,23 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   // Handle game end when all rounds are complete
   useEffect(() => {
     if (roundCount >= maxRounds && roundCount > 0) {
-      const handleGameEnd = async () => {
+      const handlePlayerFinished = async () => {
         try {
-          const freshData = await apiClient.get(`/api/game/participants/${roomId}`);
-          if (freshData && freshData.length > 0) {
-            setPlayers(freshData);
-            const topPlayer = freshData.reduce((prev, current) =>
-              (current.score > prev.score) ? current : prev
-            );
-            setWinner(topPlayer);
+          // Tell server this player is done
+          if (socketRef.current) {
+            socketRef.current.emit('player-finished', {
+              roomId,
+              userId: currentUserId
+            });
           }
-
-          await apiClient.patch(`/api/game/rooms/${roomId}`, {
-            status: 'finished',
-            finished_at: new Date().toISOString()
-          });
         } catch (error) {
-          console.error('Error finishing game:', error);
+          console.error('Error in handlePlayerFinished:', error);
         }
-
-        setGameEnded(true);
       };
 
-      handleGameEnd();
+      handlePlayerFinished();
     }
-  }, [roundCount, maxRounds, roomId]);
+  }, [roundCount, maxRounds, roomId, currentUserId]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -469,6 +497,30 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   const isLowTime = timeLeft <= 5;
 
   const currentPlayer = players.find(p => p.user_id === currentUserId);
+
+  if (waitingForOthers) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-5">
+        <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 flex flex-col items-center justify-center space-y-6">
+          <div className="text-4xl font-bold text-foreground text-center">Round 10 Complete!</div>
+          <div className="h-16 w-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xl text-center text-muted-foreground font-medium">
+             Your friend is still playing...<br />
+             Wait for the final results.
+          </p>
+          <div className="flex flex-col w-full bg-muted rounded-xl p-6 space-y-4">
+            <h3 className="font-semibold text-center text-foreground">Current Standings</h3>
+             {players.map((player) => (
+                <div key={player.id} className="flex justify-between items-center text-foreground">
+                  <span>{player.player_name}</span>
+                  <span className="font-bold">{player.score}</span>
+                </div>
+             ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (gameEnded && winner) {
     return (

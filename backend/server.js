@@ -207,10 +207,52 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('leave-room', (data) => {
+  socket.on('player-finished', async (data) => {
     const { roomId, userId } = data;
-    socket.leave(roomId);
-    socket.to(roomId).emit('participant-left', { userId });
+
+    try {
+      // Record completion in database (can use rounds_completed column)
+      await pool.query(
+        'UPDATE game_participants SET rounds_completed = 10 WHERE room_id = $1 AND user_id = $2',
+        [roomId, userId]
+      );
+
+      // Get count of players and finished players
+      const roomPlayers = await pool.query(
+        'SELECT user_id, rounds_completed FROM game_participants WHERE room_id = $1',
+        [roomId]
+      );
+
+      const allFinished = roomPlayers.rows.every(p => p.rounds_completed >= 10);
+      
+      if (allFinished) {
+        // Final scores
+        const participants = await pool.query(`
+          SELECT gp.*, p.username as player_name
+          FROM game_participants gp
+          LEFT JOIN users p ON gp.user_id = p.id
+          WHERE gp.room_id = $1
+          ORDER BY gp.score DESC
+        `, [roomId]);
+
+        const winner = participants.rows[0];
+        
+        // Final game status update
+        await pool.query(
+          'UPDATE game_rooms SET status = $1, finished_at = NOW() WHERE id = $2',
+          ['finished', roomId]
+        );
+
+        io.to(roomId).emit('game-ended', { winner, participants: participants.rows });
+      } else {
+        // Just notify this specific user they are waiting
+        socket.emit('waiting-for-others');
+        // Optionally notify others that a player is waiting
+        socket.to(roomId).emit('player-waiting', { userId });
+      }
+    } catch (error) {
+      console.error('Player finished error:', error);
+    }
   });
 
   socket.on('disconnect', () => {
