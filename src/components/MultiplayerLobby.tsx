@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Socket } from 'socket.io-client';
-import io from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -43,7 +42,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [creatorName, setCreatorName] = useState<string>('');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [initialWord, setInitialWord] = useState<{ word: string; hint: string; scrambled: string } | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -230,7 +229,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     }
 
     try {
-      await apiClient.post(`/api/game/rooms/${roomId}/start`);
+      await apiClient.post(`/api/game/rooms/${roomId}/start`, {});
       toast.success('Game starting...');
     } catch (error: unknown) {
       console.error('Error starting game:', error);
@@ -265,13 +264,13 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
   if (gameStarting && countdown !== null) {
     return (
-      <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6 flex flex-col items-center justify-center min-h-[400px]">
+      <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6 flex flex-col items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
-          <h2 className="text-2xl font-bold text-foreground">Game Starting...</h2>
-          <div className="text-8xl font-bold text-primary animate-bounce">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">Game Starting...</h2>
+          <div className="text-6xl sm:text-8xl font-bold text-primary animate-bounce">
             {countdown > 0 ? countdown : 'GO!'}
           </div>
-          <p className="text-lg text-muted-foreground">Get ready to play!</p>
+          <p className="text-base sm:text-lg text-muted-foreground">Get ready to play!</p>
         </div>
       </div>
     );
@@ -279,11 +278,11 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
   if (roomId) {
     return (
-      <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
+      <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-3xl font-bold text-foreground">Room: {roomCode}</h2>
-          <p className="text-muted-foreground">Created by: {creatorName}</p>
-          <p className="text-muted-foreground">Difficulty: {difficulty}</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Room: {roomCode}</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">Created by: {creatorName}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Difficulty: {difficulty}</p>
         </div>
 
         <div className="space-y-3">
@@ -291,18 +290,18 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           {players.map((player) => (
             <div
               key={player.id}
-              className={`flex justify-between items-center p-4 rounded-xl border ${
+              className={`flex justify-between items-center p-3 sm:p-4 rounded-xl border ${
                 player.user_id === currentUserId
                   ? 'bg-primary/10 border-primary'
                   : 'bg-muted border-border'
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-foreground">{player.player_name}</span>
-                {player.user_id === currentUserId && <span className="text-xs text-muted-foreground">(You)</span>}
+                <span className="font-semibold text-foreground text-sm sm:text-base">{player.player_name}</span>
+                {player.user_id === currentUserId && <span className="text-[10px] sm:text-xs text-muted-foreground">(You)</span>}
               </div>
               <div className="flex items-center gap-2">
-                {player.is_ready && <span className="text-green-500">✓ Ready</span>}
+                {player.is_ready && <span className="text-green-500 text-sm">✓ Ready</span>}
               </div>
             </div>
           ))}
@@ -357,10 +356,10 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   }
 
   return (
-    <Card className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
+    <Card className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold text-foreground">Multiplayer Lobby</h2>
-        <p className="text-muted-foreground">Create or join a room to play with friends</p>
+        <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Multiplayer Lobby</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">Create or join a room to play with friends</p>
       </div>
 
       <div className="space-y-3">

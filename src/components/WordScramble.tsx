@@ -312,10 +312,10 @@ export default function WordScramble() {
             }}
           />
         ) : showStart ? (
-          <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
+          <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6">
             <div className="text-center space-y-4">
-              <h1 className="text-5xl font-bold text-foreground tracking-tight">Word Scramble</h1>
-              <p className="text-xl text-muted-foreground">Challenge your word-solving abilities!</p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-tight">Word Scramble</h1>
+              <p className="text-lg sm:text-xl text-muted-foreground">Challenge your word-solving abilities!</p>
             </div>
 
             <div className="space-y-3">
@@ -370,9 +370,9 @@ export default function WordScramble() {
             </Button>
           </div>
         ) : showGameStarted ? (
-          <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
+          <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6">
             <div className="text-center space-y-2">
-              <h1 className="text-4xl font-bold text-foreground tracking-tight">Word Scramble</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">Word Scramble</h1>
               <p className="text-muted-foreground">Ready to play?</p>
             </div>
 
@@ -396,7 +396,7 @@ export default function WordScramble() {
             </Button>
           </div>
         ) : (
-          <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6 relative">
+          <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6 relative">
           {/* Exit Button */}
           <Button
             variant="ghost"
@@ -407,16 +407,16 @@ export default function WordScramble() {
               setScore(0);
               setStreak(0);
             }}
-            className="absolute top-4 left-4 rounded-full"
+            className="absolute top-2 left-2 sm:top-4 sm:left-4 rounded-full"
             title="Exit to menu"
           >
             ✕
           </Button>
 
           {/* Header */}
-          <div className="text-center space-y-2">
-            <h1 className="text-4xl font-bold text-foreground tracking-tight">Word Scramble</h1>
-            <p className="text-muted-foreground">Unscramble the word before time runs out</p>
+          <div className="text-center space-y-2 pt-4 sm:pt-0">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight">Word Scramble</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Unscramble the word before time runs out</p>
           </div>
 
           {/* Controls */}
@@ -429,7 +429,7 @@ export default function WordScramble() {
             >
               {isDark ? '☀️' : '🌙'}
             </Button>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-1 sm:gap-2 items-center overflow-x-auto pb-1 sm:pb-0">
               {(['easy', 'medium', 'hard'] as const).map((level) => (
                 <Button
                   key={level}
@@ -442,7 +442,7 @@ export default function WordScramble() {
                     setShouldLoadWordOnReady(true);
                   }}
                   disabled={isLoadingWords}
-                  className="capitalize rounded-full"
+                  className="capitalize rounded-full text-xs sm:text-sm px-2 sm:px-3"
                 >
                   {level}
                 </Button>
@@ -481,8 +481,8 @@ export default function WordScramble() {
           </div>
 
           {/* Word Display */}
-          <div className="bg-muted rounded-xl border border-border p-8 text-center space-y-3">
-            <div className="text-5xl font-bold text-foreground tracking-widest">
+          <div className="bg-muted rounded-xl border border-border p-4 sm:p-8 text-center space-y-3">
+            <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-normal sm:tracking-widest break-all">
               {scrambledWord}
             </div>
             <div className="flex items-center justify-center gap-2">

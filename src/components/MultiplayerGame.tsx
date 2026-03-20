@@ -475,8 +475,8 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       <div className="min-h-screen bg-background flex items-center justify-center p-5">
         <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
           <div className="text-center space-y-4">
-            <h1 className="text-5xl font-bold text-foreground">Game Over!</h1>
-            <div className="text-2xl font-semibold text-primary">
+            <h1 className="text-3xl sm:text-5xl font-bold text-foreground">Game Over!</h1>
+            <div className="text-xl sm:text-2xl font-semibold text-primary">
               {winner.user_id === currentUserId ? "You Won!" : `${winner.player_name} Wins!`}
             </div>
           </div>
@@ -512,22 +512,22 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-5">
-      <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6 relative">
+      <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6 relative">
         {/* Exit Button */}
         <Button
           variant="ghost"
           size="icon"
           onClick={onExit}
-          className="absolute top-4 left-4 rounded-full"
+          className="absolute top-2 left-2 sm:top-4 sm:left-4 rounded-full"
           title="Exit to lobby"
         >
           ✕
         </Button>
 
         {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-foreground tracking-tight">Multiplayer Game</h1>
-          <p className="text-muted-foreground">Round {roundCount} of {maxRounds}</p>
+        <div className="text-center space-y-2 pt-4 sm:pt-0">
+          <h1 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">Multiplayer Game</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Round {roundCount} of {maxRounds}</p>
         </div>
 
         {/* Players */}
@@ -582,8 +582,8 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
             </div>
 
             {/* Word Display */}
-            <div className="bg-muted rounded-xl border border-border p-8 text-center space-y-3">
-              <div className="text-5xl font-bold text-foreground tracking-widest">
+            <div className="bg-muted rounded-xl border border-border p-4 sm:p-8 text-center space-y-3">
+              <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-normal sm:tracking-widest break-all">
                 {scrambledWord}
               </div>
               <div className="flex items-center justify-center gap-2">

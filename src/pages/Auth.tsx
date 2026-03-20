@@ -49,13 +49,13 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-5">
-      <div className="w-full max-w-md bg-card rounded-2xl border border-border shadow-lg p-8 space-y-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-5">
+      <div className="w-full max-w-md bg-card rounded-2xl border border-border shadow-lg p-6 sm:p-8 space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-foreground tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             {isLogin ? 'Log in to play multiplayer' : 'Sign up to get started'}
           </p>
         </div>
