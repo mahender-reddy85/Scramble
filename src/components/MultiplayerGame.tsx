@@ -283,7 +283,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
 
   // Handle game end when all rounds are complete
   useEffect(() => {
-    if (roundCount >= maxRounds && roundCount > 0) {
+    if (roundCount > maxRounds && roundCount > 0) {
       const handlePlayerFinished = async () => {
         try {
           // Tell server this player is done
@@ -324,10 +324,8 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     
      setTimeout(() => {
        setRoundCount(prev => {
-         const nextRound = Math.min(prev + 1, maxRounds);
-         if (nextRound >= maxRounds) {
-           loadNewWord(maxRounds);
-         } else {
+         const nextRound = prev + 1;
+         if (nextRound <= maxRounds) {
            loadNewWord(nextRound);
          }
          return nextRound;
@@ -378,10 +376,8 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
    
      setTimeout(() => {
        setRoundCount(prev => {
-         const nextRound = Math.min(prev + 1, maxRounds);
-         if (nextRound >= maxRounds) {
-           loadNewWord(maxRounds);
-         } else {
+         const nextRound = prev + 1;
+         if (nextRound <= maxRounds) {
            loadNewWord(nextRound);
          }
          return nextRound;
@@ -580,7 +576,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
         {/* Header */}
         <div className="text-center space-y-2 pt-4 sm:pt-0">
           <h1 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">Multiplayer Game</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Round {roundCount} of {maxRounds}</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Round {Math.min(roundCount, maxRounds)} of {maxRounds}</p>
         </div>
 
         {/* Players */}
