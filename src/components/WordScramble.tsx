@@ -36,15 +36,21 @@ export default function WordScramble() {
   const [gameMode, setGameMode] = useState<'single' | 'multi'>('single');
   const [showMultiplayerLobby, setShowMultiplayerLobby] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoadingWords, setIsLoadingWords] = useState(true);
+  const [shouldLoadWordOnReady, setShouldLoadWordOnReady] = useState(false);
 
   useEffect(() => {
     async function fetchWords() {
+      setIsLoadingWords(true);
       try {
         const response = await apiClient.get(`/api/game/words/${difficulty}`);
         setWordList(response.words || []);
       } catch (error) {
         console.error('Failed to load words:', error);
         setWordList([]);
+        toast.error('Failed to load words. Please try again.');
+      } finally {
+        setIsLoadingWords(false);
       }
     }
     fetchWords();
@@ -117,6 +123,12 @@ export default function WordScramble() {
   }, []);
 
   const loadNewWord = useCallback(() => {
+    if (isLoadingWords) {
+      // If still loading, we can't load a new word yet
+      setShouldLoadWordOnReady(true);
+      return;
+    }
+    
     if (wordList.length === 0) {
       toast.error('No words available to play.');
       return;
@@ -135,7 +147,14 @@ export default function WordScramble() {
     setHintUsed(false);
     
     setTimeout(() => inputRef.current?.focus(), 100);
-  }, [wordList, scrambleWord]);
+  }, [wordList, scrambleWord, isLoadingWords]);
+
+  useEffect(() => {
+    if (!isLoadingWords && shouldLoadWordOnReady && wordList.length > 0) {
+      setShouldLoadWordOnReady(false);
+      loadNewWord();
+    }
+  }, [isLoadingWords, shouldLoadWordOnReady, wordList, loadNewWord]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -246,12 +265,20 @@ export default function WordScramble() {
       }
       setShowMultiplayerLobby(true);
     } else {
+      if (isLoadingWords) {
+        toast.info('Please wait while we prepare the words...');
+        return;
+      }
       setShowStart(false);
       setShowGameStarted(true);
     }
   };
 
   const handleStartRound = () => {
+    if (isLoadingWords) {
+      toast.info('Still loading words...');
+      return;
+    }
     setShowGameStarted(false);
     setTimeout(() => loadNewWord(), 100);
   };
@@ -336,9 +363,10 @@ export default function WordScramble() {
 
             <Button
               onClick={handleStartGame}
+              disabled={isLoadingWords && gameMode === 'single'}
               className="w-full rounded-xl text-lg py-6 font-semibold"
             >
-              Start Game
+              {isLoadingWords && gameMode === 'single' ? 'Loading Words...' : 'Start Game'}
             </Button>
           </div>
         ) : showGameStarted ? (
@@ -361,9 +389,10 @@ export default function WordScramble() {
 
             <Button
               onClick={handleStartRound}
+              disabled={isLoadingWords}
               className="w-full rounded-xl text-lg py-6 font-semibold"
             >
-              Start Round
+              {isLoadingWords ? 'Loading Words...' : 'Start Round'}
             </Button>
           </div>
         ) : (
@@ -407,10 +436,12 @@ export default function WordScramble() {
                   variant={difficulty === level ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => {
+                    if (isLoadingWords) return;
                     setDifficulty(level);
                     stopTimer();
-                    loadNewWord();
+                    setShouldLoadWordOnReady(true);
                   }}
+                  disabled={isLoadingWords}
                   className="capitalize rounded-full"
                 >
                   {level}
@@ -494,12 +525,14 @@ export default function WordScramble() {
             <Button
               variant="outline"
               onClick={() => {
+                if (isLoadingWords) return;
                 stopTimer();
                 loadNewWord();
               }}
+              disabled={isLoadingWords}
               className="w-full rounded-xl"
             >
-              New Word
+              {isLoadingWords ? 'Loading...' : 'New Word'}
             </Button>
           </div>
 
