@@ -358,9 +358,12 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     const timeVal = Number(timeLeft);
     const timeBonus = isNaN(timeVal) ? 0 : timeVal;
     
-    // Final defensive sum
-    let totalPoints = basePoints + streakBonus + timeBonus;
-    if (isNaN(totalPoints)) totalPoints = 10; // Extreme fallback
+    // Final defensive sum - Absolute protection against NaN
+    let totalPoints = Number(basePoints + streakBonus + timeBonus);
+    if (isNaN(totalPoints)) totalPoints = 10;
+    
+    // Convert to regular integers for the UI
+    totalPoints = Math.floor(totalPoints);
     
     await updatePlayerScore(totalPoints, newStreak);
     setFeedback({ message: `Correct! +${totalPoints} points`, type: 'success' });

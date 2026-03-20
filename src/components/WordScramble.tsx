@@ -175,13 +175,15 @@ export default function WordScramble() {
   }, [currentWord, stopTimer, loadNewWord]);
 
   const getBasePoints = useCallback(() => {
-    const pointsMap = { easy: 5, medium: 8, hard: 10 };
-    return pointsMap[difficulty];
+    const diff = String(difficulty || 'easy').toLowerCase();
+    const pointsMap: Record<string, number> = { easy: 5, medium: 8, hard: 10 };
+    return pointsMap[diff] || 5;
   }, [difficulty]);
 
   const handleCorrectAnswer = useCallback(() => {
     stopTimer();
     playSound('correct');
+    
     const basePoints = Number(getBasePoints()) || 5;
     const currentStreak = Number(streak) || 0;
     const newStreak = currentStreak + 1;
@@ -189,8 +191,12 @@ export default function WordScramble() {
     const timeVal = Number(timeLeft);
     const timeBonus = isNaN(timeVal) ? 0 : timeVal;
     
-    let totalPoints = basePoints + streakBonus + timeBonus;
+    // Final defensive sum - absolute protection against NaN
+    let totalPoints = Number(basePoints + streakBonus + timeBonus);
     if (isNaN(totalPoints)) totalPoints = 10;
+    
+    // Ensure it's a clean integer
+    totalPoints = Math.floor(totalPoints);
     
     setScore(prev => prev + totalPoints);
     setStreak(newStreak);
