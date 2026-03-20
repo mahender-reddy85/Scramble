@@ -589,25 +589,25 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
           <p className="text-sm sm:text-base text-muted-foreground">Round {Math.min(roundCount, maxRounds)} of {maxRounds}</p>
         </div>
 
-        {/* Players */}
-        <div className="space-y-2">
+        {/* Players Scoreboard */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mb-4">
           {players.map((player) => (
             <div 
               key={player.id}
-              className={`flex justify-between items-center p-3 rounded-xl border ${
+              className={`flex justify-between items-center p-2.5 sm:p-3 rounded-xl border transition-all duration-300 ${
                 player.user_id === currentUserId 
-                  ? 'bg-primary/10 border-primary' 
-                  : 'bg-muted border-border'
+                  ? 'bg-primary/15 border-primary shadow-sm ring-1 ring-primary/20' 
+                  : 'bg-muted/50 border-border opacity-90'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-foreground">{player.player_name}</span>
-                {player.user_id === currentUserId && <span className="text-xs text-muted-foreground">(You)</span>}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                  <span className={`font-bold text-sm sm:text-base text-foreground truncate ${player.user_id === currentUserId ? 'max-w-[100px]' : 'max-w-[120px]'}`}>{player.player_name}</span>
+                  {player.user_id === currentUserId && <span className="text-[10px] text-primary font-bold uppercase px-1.5 py-0.5 bg-primary/15 rounded-md">You</span>}
+                </div>
+                <span className="text-[10px] sm:text-xs text-muted-foreground">Streak: {player.current_streak}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Streak: {player.current_streak}</span>
-                <span className="text-xl font-bold text-foreground">{player.score}</span>
-              </div>
+              <div className="text-xl sm:text-2xl font-black text-foreground tabular-nums select-none">{player.score}</div>
             </div>
           ))}
         </div>
