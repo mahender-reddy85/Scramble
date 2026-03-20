@@ -190,22 +190,29 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   }, [roomId, loadPlayers]);
 
   const updatePlayerScore = useCallback(async (points: number, newStreak: number) => {
-    const currentPlayer = players.find(p => p.user_id === currentUserId);
+    const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
     if (!currentPlayer) return;
 
-    const newScore = currentPlayer.score + points;
-
     try {
-      await apiClient.put(`/api/game/participants/${currentPlayer.id}`, {
-        score: newScore,
-        current_streak: newStreak
+      // Use the dedicated update-db endpoint which also handles broadcasting
+      await apiClient.post('/api/game/update-db', {
+        roomId,
+        userId: currentUserId,
+        points,
+        streak: newStreak
       });
-      // Update local state immediately after backend update
-      setPlayers(prev => prev.map(p => p.id === currentPlayer.id ? { ...p, score: newScore, current_streak: newStreak } : p));
+      
+      // Optimistic update locally
+      const newScore = (Number(currentPlayer.score) || 0) + points;
+      setPlayers(prev => prev.map(p => {
+        const p_uid = String(p.user_id).toLowerCase();
+        const c_uid = String(currentUserId).toLowerCase();
+        return p_uid === c_uid ? { ...p, score: newScore, current_streak: newStreak } : p;
+      }));
     } catch (error) {
       console.error('Error updating score:', error);
     }
-  }, [currentUserId, players]);
+  }, [currentUserId, players, roomId]);
 
   const loadNewWord = useCallback(async (currentRound: number) => {
       if (currentRound > maxRounds) {
@@ -347,7 +354,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     stopTimer();
     playSound('correct');
     
-    const currentPlayer = players.find(p => p.user_id === currentUserId);
+    const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
     if (!currentPlayer) return;
 
     const basePoints = Number(getBasePoints()) || 5;
@@ -402,7 +409,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   const handleWrongAnswer = useCallback(async () => {
     playSound('wrong');
     
-    const currentPlayer = players.find(p => p.user_id === currentUserId);
+    const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
     if (currentPlayer) {
       await updatePlayerScore(0, 0);
     }
@@ -464,7 +471,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       setHintUsed(true);
       const penalty = Math.floor(getBasePoints() * 0.3);
       
-      const currentPlayer = players.find(p => p.user_id === currentUserId);
+      const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
       if (currentPlayer) {
         // Don't await here to prevent UI blocking
         updatePlayerScore(-penalty, currentPlayer.current_streak).catch(console.error);
