@@ -51,7 +51,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setCurrentUserId(payload.id || payload.user?.id || 'anonymous');
       } catch (error) {
-        console.error('Error decoding token:', error);
         setCurrentUserId('anonymous');
       }
     }
@@ -66,7 +65,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     });
 
     socketRef.current.on('connect', () => {
-      // Join the socket room
       socketRef.current?.emit('join-room', {
         roomId,
         userId: currentUserId,
@@ -77,7 +75,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
     socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
       setPlayers(updatedPlayers);
-      // Update local ready status if it changed
       const currentPlayer = updatedPlayers.find(p => p.user_id === currentUserId);
       if (currentPlayer) {
         setIsReady(currentPlayer.is_ready);
@@ -116,7 +113,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       setPlayers(response.participants || []);
       setCreatorName(response.room.creator_name || 'Unknown');
     } catch (error) {
-      console.error('Error loading room data:', error);
       toast.error('Failed to load room data. Please refresh the page.');
     }
   }, [roomId]);
@@ -149,7 +145,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       setIsHost(true);
       toast.success(`Room ${roomCode} created!`);
     } catch (error: unknown) {
-      console.error('Error creating room:', error);
       const err = error as ErrorResponse;
       const message = err instanceof Error && err.response?.data?.error
         ? err.response.data.error
@@ -190,7 +185,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       setDifficulty(room.difficulty as 'easy' | 'medium' | 'hard');
       toast.success(`Joined room ${roomCode}!`);
     } catch (error: unknown) {
-      console.error('Error joining room:', error);
       const err = error as ErrorResponse;
       const message = err instanceof Error && err.response?.data?.error
         ? err.response.data.error
@@ -232,7 +226,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       await apiClient.post(`/api/game/rooms/${roomId}/start`, {});
       toast.success('Game starting...');
     } catch (error: unknown) {
-      console.error('Error starting game:', error);
       const err = error as ErrorResponse;
       const message = err instanceof Error && err.response?.data?.error
         ? err.response.data.error
@@ -307,7 +300,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           ))}
         </div>
 
-        {/* Countdown Overlay */}
         {countdown !== null && countdown > 0 && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="text-center">

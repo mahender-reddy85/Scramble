@@ -42,7 +42,6 @@ export default function UserMenu() {
       const response = await apiClient.get('/api/auth/me');
       setUser(response.user);
     } catch (error) {
-      console.error('Failed to fetch user:', error);
       localStorage.removeItem('token');
     } finally {
       setIsLoading(false);

@@ -35,7 +35,6 @@ export default function Auth() {
         setIsLogin(true);
       }
     } catch (error: unknown) {
-      console.error('Auth error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
       if (errorMessage.includes('User not found') && isLogin) {
         toast.error('User not found. Please sign up first.');

@@ -55,10 +55,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   const playerNameRef = useRef<string>('');
 
   useEffect(() => {
-    // Audio Context
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-
-    // User ID
     const token = localStorage.getItem('token');
     let userId = 'anonymous';
     if (token) {
@@ -67,12 +64,10 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
         userId = payload.id || payload.user?.id || 'anonymous';
         setCurrentUserId(userId);
       } catch (error) {
-        console.error('Error decoding token:', error);
         setCurrentUserId('anonymous');
       }
     }
 
-    // Socket Setup
     if (roomId) {
       socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
         query: { roomId, userId }
@@ -102,7 +97,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
         setPlayers(updatedPlayers);
       });
 
-      // Also load initial player state via REST to ensure we have data immediately
       loadPlayers();
     }
 
@@ -113,7 +107,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   }, [roomId]);
 
   useEffect(() => {
-    // Set initial word if provided from parent
     if (initialWord) {
       setCurrentWord(initialWord.word);
       setScrambledWord(initialWord.scrambled);
@@ -121,7 +114,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       setIsActive(true);
       setGameStarted(true);
       inputRef.current?.focus();
-      // If this is the first word, start round 1 so UI shows correct round and scoreboard
       setRoundCount(prev => prev === 0 ? 1 : prev);
     }
   }, [initialWord]);
@@ -181,11 +173,9 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       const data = await apiClient.get(`/api/game/participants/${roomId}`);
       setPlayers(data || []);
     } catch (error) {
-      console.error('Error loading players:', error);
     }
   }, [roomId]);
 
-  // Load players on mount / when room is set so scoreboard shows immediately
   useEffect(() => {
     if (roomId) {
       loadPlayers();
@@ -197,15 +187,12 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     if (!currentPlayer) return;
 
     try {
-      // Use the dedicated update-db endpoint which also handles broadcasting
       await apiClient.post('/api/game/update-db', {
         roomId,
         userId: currentUserId,
         points,
         streak: newStreak
       });
-      
-      // Optimistic update locally
       const newScore = (Number(currentPlayer.score) || 0) + points;
       setPlayers(prev => prev.map(p => {
         const p_uid = String(p.user_id).toLowerCase();
@@ -213,67 +200,60 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
         return p_uid === c_uid ? { ...p, score: newScore, current_streak: newStreak } : p;
       }));
     } catch (error) {
-      console.error('Error updating score:', error);
     }
   }, [currentUserId, players, roomId]);
 
   const loadNewWord = useCallback(async (currentRound: number) => {
-      if (currentRound > maxRounds) {
+    if (currentRound > maxRounds) {
+      return;
+    }
+
+    try {
+      const freshData = await apiClient.get(`/api/game/participants/${roomId}`);
+      if (freshData && freshData.length > 0) {
+        setPlayers(freshData);
+      }
+    } catch (error) {
+    }
+
+    try {
+      const response = await apiClient.get(`/api/game/words/${difficulty}`);
+      const words = response.words;
+      const randomIndex = Math.floor(Math.random() * words.length);
+      const wordItem = words[randomIndex];
+
+      const newScrambled = scrambleWord(wordItem.word);
+
+      setCurrentWord(wordItem.word);
+      setScrambledWord(newScrambled);
+      setCurrentHint(wordItem.hint);
+      setAnswer('');
+      setFeedback({ message: '', type: '' });
+      setTimeLeft(20);
+      setShowCountdown(true);
+      setCountdown(3);
+      setIsActive(false);
+      setShowHint(false);
+      setHintUsed(false);
+
+      if (isSendingNewWordEventRef.current) return;
+      isSendingNewWordEventRef.current = true;
+      try {
+        await apiClient.post('/api/game/events', {
+          room_id: roomId,
+          user_id: currentUserId,
+          event_type: 'new_word',
+          current_word: wordItem.word
+        });
+        isSendingNewWordEventRef.current = false;
+      } catch (error) {
+        isSendingNewWordEventRef.current = false;
         return;
       }
+    } catch (error) {
+    }
+  }, [difficulty, roomId, currentUserId, maxRounds, scrambleWord]);
 
-      try {
-        const freshData = await apiClient.get(`/api/game/participants/${roomId}`);
-        if (freshData && freshData.length > 0) {
-          setPlayers(freshData);
-        }
-      } catch (error) {
-        console.error('Error loading players:', error);
-      }
-
-      try {
-        const response = await apiClient.get(`/api/game/words/${difficulty}`);
-        const words = response.words;
-        const randomIndex = Math.floor(Math.random() * words.length);
-        const wordItem = words[randomIndex];
-
-        const newScrambled = scrambleWord(wordItem.word);
-
-        setCurrentWord(wordItem.word);
-        setScrambledWord(newScrambled);
-        setCurrentHint(wordItem.hint);
-        setAnswer('');
-        setFeedback({ message: '', type: '' });
-        setTimeLeft(20);
-        setShowCountdown(true);
-        setCountdown(3);
-        setIsActive(false);
-        setShowHint(false);
-        setHintUsed(false);
-
-        // Log event
-        if (isSendingNewWordEventRef.current) return;
-        isSendingNewWordEventRef.current = true;
-        try {
-          await apiClient.post('/api/game/events', {
-            room_id: roomId,
-            user_id: currentUserId,
-            event_type: 'new_word',
-            current_word: wordItem.word
-          });
-          isSendingNewWordEventRef.current = false;
-        } catch (error) {
-          console.error('Error logging event:', error);
-          console.error("Event send failed once, stopping retries");
-          isSendingNewWordEventRef.current = false;
-          return;
-        }
-      } catch (error) {
-        console.error('Error loading words:', error);
-      }
-    }, [difficulty, roomId, currentUserId, maxRounds, scrambleWord]);
-
-  // Countdown effect
   useEffect(() => {
     let countdownInterval: NodeJS.Timeout;
     if (showCountdown && countdown > 0) {
@@ -294,12 +274,10 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     return () => clearInterval(countdownInterval);
   }, [showCountdown, countdown]);
 
-  // Handle game end when all rounds are complete
   useEffect(() => {
     if (roundCount > maxRounds && roundCount > 0) {
       const handlePlayerFinished = async () => {
         try {
-          // Tell server this player is done
           if (socketRef.current) {
             socketRef.current.emit('player-finished', {
               roomId,
@@ -307,7 +285,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
             });
           }
         } catch (error) {
-          console.error('Error in handlePlayerFinished:', error);
         }
       };
 
@@ -335,19 +312,18 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       updatePlayerScore(0, 0);
     }
     
-     setTimeout(() => {
-       setRoundCount(prev => {
-         const nextRound = prev + 1;
-         if (nextRound <= maxRounds) {
-           loadNewWord(nextRound);
-         }
-         return nextRound;
-       });
-     }, 3000);
-   }, [currentWord, stopTimer, loadNewWord, currentUserId, players, updatePlayerScore, maxRounds]);
+    setTimeout(() => {
+      setRoundCount(prev => {
+        const nextRound = prev + 1;
+        if (nextRound <= maxRounds) {
+          loadNewWord(nextRound);
+        }
+        return nextRound;
+      });
+    }, 3000);
+  }, [currentWord, stopTimer, loadNewWord, currentUserId, players, updatePlayerScore, maxRounds]);
 
   const getBasePoints = useCallback(() => {
-    // Ensure difficulty is a string and handle case normalization
     const diff = String(difficulty || 'easy').toLowerCase();
     const pointsMap: Record<string, number> = { easy: 5, medium: 8, hard: 10 };
     return pointsMap[diff] || 5;
@@ -368,17 +344,14 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     const timeVal = Number(timeLeft);
     const timeBonus = isNaN(timeVal) ? 0 : timeVal;
     
-    // Final defensive sum - Absolute protection against NaN
     let totalPoints = Number(basePoints + streakBonus + timeBonus);
     if (isNaN(totalPoints)) totalPoints = 10;
     
-    // Convert to regular integers for the UI
     totalPoints = Math.floor(totalPoints);
     
     await updatePlayerScore(totalPoints, newStreak);
     setFeedback({ message: `Correct! +${totalPoints} points`, type: 'success' });
 
-    // Log event
     if (isSendingAnswerEventRef.current) return;
     isSendingAnswerEventRef.current = true;
     try {
@@ -392,22 +365,20 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       });
       isSendingAnswerEventRef.current = false;
     } catch (error) {
-      console.error('Error logging event:', error);
-      console.error("Event send failed once, stopping retries");
       isSendingAnswerEventRef.current = false;
       return;
     }
    
-     setTimeout(() => {
-       setRoundCount(prev => {
-         const nextRound = prev + 1;
-         if (nextRound <= maxRounds) {
-           loadNewWord(nextRound);
-         }
-         return nextRound;
-       });
-     }, 2500);
-   }, [stopTimer, getBasePoints, timeLeft, loadNewWord, playSound, currentUserId, players, updatePlayerScore, roomId, currentWord, maxRounds]);
+    setTimeout(() => {
+      setRoundCount(prev => {
+        const nextRound = prev + 1;
+        if (nextRound <= maxRounds) {
+          loadNewWord(nextRound);
+        }
+        return nextRound;
+      });
+    }, 2500);
+  }, [stopTimer, getBasePoints, timeLeft, loadNewWord, playSound, currentUserId, players, updatePlayerScore, roomId, currentWord, maxRounds]);
 
   const handleWrongAnswer = useCallback(async () => {
     playSound('wrong');
@@ -420,7 +391,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
     setAnswer('');
 
-    // Log event
     if (isSendingAnswerEventRef.current) return;
     isSendingAnswerEventRef.current = true;
     try {
@@ -433,8 +403,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       });
       isSendingAnswerEventRef.current = false;
     } catch (error) {
-      console.error('Error logging event:', error);
-      console.error("Event send failed once, stopping retries");
       isSendingAnswerEventRef.current = false;
       return;
     }
@@ -476,8 +444,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       
       const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
       if (currentPlayer) {
-        // Don't await here to prevent UI blocking
-        updatePlayerScore(-penalty, currentPlayer.current_streak).catch(console.error);
+        updatePlayerScore(-penalty, currentPlayer.current_streak).catch(() => {});
       }
 
       toast.warning(`Hint used! -${penalty} points`, {
@@ -591,7 +558,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-5">
       <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6 relative">
-        {/* Exit Button */}
         <Button
           variant="ghost"
           size="icon"
@@ -602,13 +568,11 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
           ✕
         </Button>
 
-        {/* Header */}
         <div className="text-center space-y-2 pt-4 sm:pt-0">
           <h1 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">Multiplayer Game</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Round {Math.min(roundCount, maxRounds)} of {maxRounds}</p>
         </div>
 
-        {/* Players Scoreboard */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mb-4">
           {players.map((player) => (
             <div 
@@ -631,7 +595,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
         </div>
 
         {showCountdown ? (
-          /* Countdown Display */
           <div className="flex flex-col items-center justify-center space-y-4 p-8">
             <div className="text-6xl font-bold text-primary animate-bounce">
               {countdown}
@@ -640,7 +603,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
           </div>
         ) : (
           <>
-            {/* Timer */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Time Remaining</span>
@@ -658,7 +620,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
               </div>
             </div>
 
-            {/* Word Display */}
             <div className="bg-muted rounded-xl border border-border p-4 sm:p-8 text-center space-y-3">
               <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-normal sm:tracking-widest break-all">
                 {scrambledWord}
@@ -680,7 +641,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
               </div>
             </div>
 
-            {/* Input Section */}
             <div className="space-y-3">
               <div className="flex gap-2">
                 <Input
@@ -706,7 +666,6 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
           </>
         )}
 
-        {/* Feedback */}
         {feedback.message && (
           <div
             className={`text-center py-3 px-4 rounded-xl font-semibold ${

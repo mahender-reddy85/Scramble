@@ -46,7 +46,6 @@ export default function WordScramble() {
         const response = await apiClient.get(`/api/game/words/${difficulty}`);
         setWordList(response.words || []);
       } catch (error) {
-        console.error('Failed to load words:', error);
         setWordList([]);
         toast.error('Failed to load words. Please try again.');
       } finally {
@@ -60,12 +59,8 @@ export default function WordScramble() {
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-
-  // Initialize audio context
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    
-    // Check authentication status
     const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
 
@@ -74,7 +69,6 @@ export default function WordScramble() {
     };
   }, []);
 
-  // Play sound effect
   const playSound = useCallback((type: 'correct' | 'wrong' | 'warning') => {
     const soundEnabled = localStorage.getItem('sound-enabled') !== 'false';
     if (!soundEnabled) return;
@@ -127,7 +121,6 @@ export default function WordScramble() {
 
   const loadNewWord = useCallback(() => {
     if (isLoadingWords) {
-      // If still loading, we can't load a new word yet
       setShouldLoadWordOnReady(true);
       return;
     }
@@ -193,12 +186,8 @@ export default function WordScramble() {
     const streakBonus = newStreak * 3;
     const timeVal = Number(timeLeft);
     const timeBonus = isNaN(timeVal) ? 0 : timeVal;
-    
-    // Final defensive sum - absolute protection against NaN
     let totalPoints = Number(basePoints + streakBonus + timeBonus);
     if (isNaN(totalPoints)) totalPoints = 10;
-    
-    // Ensure it's a clean integer
     totalPoints = Math.floor(totalPoints);
     
     setScore(prev => prev + totalPoints);
@@ -245,7 +234,6 @@ export default function WordScramble() {
 
   useEffect(() => {
     if (isActive && timeLeft > 0) {
-      // Play warning sound when time is low
       if (timeLeft === 5) {
         playSound('warning');
       }
@@ -410,7 +398,6 @@ export default function WordScramble() {
           </div>
         ) : (
           <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6 relative">
-          {/* Exit Button */}
           <Button
             variant="ghost"
             size="icon"
@@ -426,13 +413,11 @@ export default function WordScramble() {
             ✕
           </Button>
 
-          {/* Header */}
           <div className="text-center space-y-2 pt-4 sm:pt-0">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight">Word Scramble</h1>
             <p className="text-sm sm:text-base text-muted-foreground">Unscramble the word before time runs out</p>
           </div>
 
-          {/* Controls */}
           <div className="flex items-center justify-between gap-4">
             <Button
               variant="outline"
@@ -463,7 +448,6 @@ export default function WordScramble() {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-muted rounded-xl border border-border p-4 text-center">
               <div className="text-sm text-muted-foreground mb-1">Score</div>
@@ -475,7 +459,6 @@ export default function WordScramble() {
             </div>
           </div>
 
-          {/* Timer */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Time Remaining</span>
@@ -493,7 +476,6 @@ export default function WordScramble() {
             </div>
           </div>
 
-          {/* Word Display */}
           <div className="bg-muted rounded-xl border border-border p-4 sm:p-8 text-center space-y-3">
             <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-normal sm:tracking-widest break-all">
               {scrambledWord}
@@ -514,7 +496,6 @@ export default function WordScramble() {
             </div>
           </div>
 
-          {/* Input Section */}
           <div className="space-y-3">
             <div className="flex gap-2">
               <Input
@@ -549,7 +530,6 @@ export default function WordScramble() {
             </Button>
           </div>
 
-          {/* Feedback */}
           {feedback.message && (
             <div
               className={`text-center py-3 px-4 rounded-xl font-semibold ${
