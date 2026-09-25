@@ -173,6 +173,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       const data = await apiClient.get(`/api/game/participants/${roomId}`);
       setPlayers(data || []);
     } catch (error) {
+      setPlayers([]);
     }
   }, [roomId]);
 
@@ -200,20 +201,13 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
         return p_uid === c_uid ? { ...p, score: newScore, current_streak: newStreak } : p;
       }));
     } catch (error) {
+      setPlayers(prev => prev);
     }
   }, [currentUserId, players, roomId]);
 
   const loadNewWord = useCallback(async (currentRound: number) => {
     if (currentRound > maxRounds) {
       return;
-    }
-
-    try {
-      const freshData = await apiClient.get(`/api/game/participants/${roomId}`);
-      if (freshData && freshData.length > 0) {
-        setPlayers(freshData);
-      }
-    } catch (error) {
     }
 
     try {
@@ -251,6 +245,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
         return;
       }
     } catch (error) {
+      return;
     }
   }, [difficulty, roomId, currentUserId, maxRounds, scrambleWord]);
 
@@ -285,6 +280,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
             });
           }
         } catch (error) {
+          console.error(error);
         }
       };
 
