@@ -1,7 +1,4 @@
-/**
- * app.js — Express application factory (no server.listen, no Socket.io).
- * Imported by server.js (production) and by tests via Supertest.
- */
+
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -11,7 +8,7 @@ import gameRoutes from './routes/game.js';
 export function createApp(io = null) {
   const app = express();
 
-  // Attach Socket.io instance when provided (production only)
+
   if (io) {
     app.set('io', io);
     app.use((req, _res, next) => {
@@ -19,7 +16,7 @@ export function createApp(io = null) {
       next();
     });
   } else {
-    // Stub so game routes don't crash when io.to() is called in tests
+
     const ioStub = { to: () => ({ emit: () => {} }) };
     app.set('io', ioStub);
     app.use((req, _res, next) => {
@@ -31,10 +28,10 @@ export function createApp(io = null) {
   app.use(cors());
   app.use(express.json());
 
-  // ── Rate Limiting ──────────────────────────────────────────────────────────
+
   const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000, // Increased from 100 to 1000
+    max: 1000, 
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
@@ -43,7 +40,7 @@ export function createApp(io = null) {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100, // Increased from 10 to 100
+    max: 100, 
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
@@ -52,7 +49,7 @@ export function createApp(io = null) {
 
   const gameLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 200, // Increased from 60 to 200
+    max: 200, 
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
@@ -61,16 +58,16 @@ export function createApp(io = null) {
 
   app.use('/api/', globalLimiter);
 
-  // Routes
+
   app.use('/api/auth', authLimiter, authRoutes);
   app.use('/api/game', gameLimiter, gameRoutes);
 
-  // Root
+
   app.get('/', (_req, res) => {
     res.json({ message: 'Scramble Game API Server', status: 'running' });
   });
 
-  // Health check
+
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
   });

@@ -83,9 +83,9 @@ export default function WordScramble() {
     gainNode.connect(ctx.destination);
 
     if (type === 'correct') {
-      oscillator.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
-      oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
+      oscillator.frequency.setValueAtTime(523.25, ctx.currentTime); 
+      oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); 
+      oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); 
       gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
       oscillator.start(ctx.currentTime);

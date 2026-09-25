@@ -19,12 +19,12 @@ const io = new Server(http.createServer(), {
 const app = createApp(io);
 const server = http.createServer(app);
 
-// Re-attach io to the real http server
+
 io.attach(server);
 
-// Root and health routes are registered inside createApp()
 
-// Socket.io for real-time multiplayer
+
+
 const rooms = new Map();
 
 io.on('connection', (socket) => {
@@ -33,7 +33,7 @@ io.on('connection', (socket) => {
   socket.on('join-room', async (data) => {
     const { roomId, userId, playerName, token } = data;
 
-    // Verify token
+
     if (!token) {
       socket.emit('error', { message: 'No token provided' });
       return;
@@ -48,7 +48,7 @@ io.on('connection', (socket) => {
 
       socket.join(roomId);
 
-      // Get room info
+
       const roomData = await pool.query(`
         SELECT gr.*, COUNT(gp.id) as player_count
         FROM game_rooms gr
@@ -62,7 +62,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Get participants
+
       const participants = await pool.query(`
         SELECT gp.id, gp.player_name, gp.is_ready, gp.user_id
         FROM game_participants gp
@@ -70,17 +70,17 @@ io.on('connection', (socket) => {
         ORDER BY gp.joined_at
       `, [roomId]);
 
-      // Emit current participants to the joining user
+
       socket.emit('participantsUpdated', participants.rows);
 
-      // Notify others with updated participants
+
       socket.to(roomId).emit('participant-joined', {
         userId,
         playerName,
         participants: participants.rows
       });
 
-      // Check if game is active and sync current state
+
       if (roomData.rows[0].status === 'active') {
         const currentRound = await pool.query('SELECT current_round FROM game_rooms WHERE id = $1', [roomId]);
         socket.emit('game-sync', {
@@ -101,13 +101,13 @@ io.on('connection', (socket) => {
     const { roomId, userId, word, isCorrect, points } = data;
 
     try {
-      // Record the event
+
       await pool.query(
         'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
         [roomId, userId, 'answer_submitted', word, isCorrect, points]
       );
 
-      // Update score
+
       if (isCorrect) {
         await pool.query(
           'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
@@ -120,7 +120,7 @@ io.on('connection', (socket) => {
         );
       }
 
-      // Get updated scores
+
       const participants = await pool.query(`
         SELECT gp.*, p.username as player_name
         FROM game_participants gp
@@ -129,7 +129,7 @@ io.on('connection', (socket) => {
         ORDER BY gp.score DESC
       `, [roomId]);
 
-      // Notify all players
+
       io.to(roomId).emit('answer-submitted', {
         userId,
         word,
@@ -138,25 +138,25 @@ io.on('connection', (socket) => {
         participants: participants.rows
       });
 
-      // Check if we need to send next word (after a delay)
+
       setTimeout(async () => {
         try {
-          // Get current round
+
           const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
           const currentRound = roomData.rows[0]?.current_round || 0;
           const difficulty = roomData.rows[0]?.difficulty || 'easy';
 
-          if (currentRound < 10) { // Assuming 10 rounds max
-            // Select next word
+          if (currentRound < 10) { 
+
             const words = wordBanks[difficulty];
             const randomIndex = Math.floor(Math.random() * words.length);
             const wordItem = words[randomIndex];
             const scrambled = scrambleWord(wordItem.word);
 
-            // Update round
+
             await pool.query('UPDATE game_rooms SET current_round = current_round + 1 WHERE id = $1', [roomId]);
 
-            // Send next word to all players
+
             io.to(roomId).emit('newWord', {
               word: wordItem.word,
               hint: wordItem.hint,
@@ -164,14 +164,14 @@ io.on('connection', (socket) => {
               round: currentRound + 1
             });
           } else {
-            // Game ended
+
             const winner = participants.rows[0];
             io.to(roomId).emit('gameEnded', { winner });
           }
         } catch (error) {
           console.error('Error sending next word:', error);
         }
-      }, 2500); // Delay before next word
+      }, 2500); 
 
     } catch (error) {
       console.error('Submit answer error:', error);
@@ -183,13 +183,13 @@ io.on('connection', (socket) => {
     const { roomId, userId, is_ready } = data;
 
     try {
-      // Update ready status in database
+
       await pool.query(
         'UPDATE game_participants SET is_ready = $1 WHERE room_id = $2 AND user_id = $3',
         [is_ready, roomId, userId]
       );
 
-      // Get updated participants with COALESCE for player_name
+
       const participants = await pool.query(`
         SELECT gp.id, COALESCE(gp.player_name, p.username) as player_name, gp.is_ready, gp.user_id
         FROM game_participants gp
@@ -198,7 +198,7 @@ io.on('connection', (socket) => {
         ORDER BY gp.joined_at
       `, [roomId]);
 
-      // Notify all players in room
+
       io.to(roomId).emit('participantsUpdated', participants.rows);
 
     } catch (error) {
@@ -207,19 +207,19 @@ io.on('connection', (socket) => {
     }
   });
 
-const playerFinishedStatus = new Map(); // RoomId -> Map(UserId -> Boolean)
+const playerFinishedStatus = new Map(); 
 
 socket.on('player-finished', async (data) => {
     const { roomId, userId } = data;
 
     try {
-      // Record completion in memory (resilient to DB failure)
+
       if (!playerFinishedStatus.has(roomId)) {
         playerFinishedStatus.set(roomId, new Map());
       }
       playerFinishedStatus.get(roomId).set(userId, true);
 
-      // Record completion in database (still attempted)
+
       try {
         await pool.query(
           'UPDATE game_participants SET rounds_completed = 10 WHERE room_id = $1 AND user_id = $2',
@@ -229,7 +229,7 @@ socket.on('player-finished', async (data) => {
         console.error('DB update rounds_completed failed, falling back to memory:', dbErr.message);
       }
 
-      // Check consensus
+
       const roomPlayers = await pool.query(
         'SELECT user_id FROM game_participants WHERE room_id = $1',
         [roomId]
@@ -239,7 +239,7 @@ socket.on('player-finished', async (data) => {
       const finishedUserIds = Array.from(finishedInRoom.keys()).map(id => String(id).toLowerCase());
       const participantUserIds = roomPlayers.rows.map(p => String(p.user_id).toLowerCase());
       
-      // consensus: every participant in the DB must be in the "finished" memory map
+
       const allDone = participantUserIds.length > 0 && participantUserIds.every(id => finishedUserIds.includes(id));
       
       console.log(`Room ${roomId}: Participants [${participantUserIds}], Finished [${finishedUserIds}]. allDone: ${allDone}`);
@@ -250,17 +250,17 @@ socket.on('player-finished', async (data) => {
         socket.emit('waiting-for-others');
         socket.to(roomId).emit('player-waiting', { userId });
         
-        // Safety fallback: if anyone is stuck for more than 15s after someone finished
+
         if (!finishedInRoom.get('end_timeout_set')) {
           finishedInRoom.set('end_timeout_set', true);
           setTimeout(async () => {
-             // Re-check if it's still ongoing
+
              const status = playerFinishedStatus.get(roomId);
              if (status) {
                 console.log(`Room ${roomId}: Safety timeout reached. Ending game for all.`);
                 await endGame(roomId, io);
              }
-          }, 15000); // 15 seconds safety timeout
+          }, 15000); 
         }
       }
     } catch (error) {

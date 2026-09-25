@@ -7,7 +7,7 @@ import pool from '../db.js';
 
 const router = express.Router();
 
-// Register
+
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
@@ -22,7 +22,7 @@ router.post('/register', [
   const { email, password, username } = req.body;
 
   try {
-    // Check if user already exists
+
     const existing = await pool.query(
       'SELECT id FROM users WHERE email = $1 OR username = $2',
       [email, username]
@@ -32,18 +32,18 @@ router.post('/register', [
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // Hash password
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const userId = crypto.randomUUID();
 
-    // Insert user into users table
+
     await pool.query(
       'INSERT INTO users (id, username, email, password_hash) VALUES ($1, $2, $3, $4)',
       [userId, username, email, hashedPassword]
     );
 
-    // Generate token
+
     const token = jwt.sign(
       { id: userId, username },
       process.env.JWT_SECRET,
@@ -59,7 +59,7 @@ router.post('/register', [
 });
 
 
-// Login
+
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').exists()
@@ -104,7 +104,7 @@ router.post('/login', [
 });
 
 
-// Get current user
+
 router.get('/me', async (req, res) => {
 
   const authHeader = req.headers['authorization'];
@@ -131,7 +131,7 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// Update profile
+
 router.put('/profile', [
   body('username').optional().isLength({ min: 3 }).trim(),
   body('avatar_url').optional().isURL()
@@ -151,7 +151,7 @@ router.put('/profile', [
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { username, avatar_url } = req.body;
 
-    // Check if username is taken by another user
+
     if (username) {
       const existing = await pool.query(
         'SELECT id FROM users WHERE username = $1 AND id != $2',
@@ -162,7 +162,7 @@ router.put('/profile', [
       }
     }
 
-    // Update profile
+
     await pool.query(
       'UPDATE users SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url) WHERE id = $3',
       [username, avatar_url, decoded.id]

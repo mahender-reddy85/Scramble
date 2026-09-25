@@ -1,10 +1,7 @@
-/**
- * tests/auth.test.js
- * Auth API — register, login, /me, and input-validation tests.
- */
+
 import { jest } from '@jest/globals';
 
-// ── Mock the database BEFORE importing the app ────────────────────────────────
+
 jest.unstable_mockModule('../db.js', async () => {
   const { default: pool } = await import('../__mocks__/db.js');
   return { default: pool };
@@ -14,7 +11,7 @@ const { default: pool } = await import('../__mocks__/db.js');
 const { createApp } = await import('../app.js');
 const { default: request } = await import('supertest');
 
-// ── Test setup ────────────────────────────────────────────────────────────────
+
 let app;
 
 beforeAll(() => {
@@ -26,13 +23,13 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// ── /api/auth/register ────────────────────────────────────────────────────────
+
 describe('POST /api/auth/register', () => {
   it('registers a new user successfully', async () => {
-    // No existing user found → empty rows
+
     pool.query
-      .mockResolvedValueOnce({ rows: [] })       // SELECT id FROM users (duplicate check)
-      .mockResolvedValueOnce({ rows: [] });       // INSERT INTO users
+      .mockResolvedValueOnce({ rows: [] })       
+      .mockResolvedValueOnce({ rows: [] });       
 
     const res = await request(app)
       .post('/api/auth/register')
@@ -80,10 +77,10 @@ describe('POST /api/auth/register', () => {
   });
 });
 
-// ── /api/auth/login ───────────────────────────────────────────────────────────
+
 describe('POST /api/auth/login', () => {
   it('logs in with correct credentials', async () => {
-    // bcryptjs hashes "password123" — pre-generate for the mock
+
     const bcrypt = await import('bcryptjs');
     const hash = await bcrypt.default.hash('password123', 10);
 
@@ -136,7 +133,7 @@ describe('POST /api/auth/login', () => {
   });
 });
 
-// ── /api/auth/me ──────────────────────────────────────────────────────────────
+
 describe('GET /api/auth/me', () => {
   it('returns the user when given a valid JWT', async () => {
     const jwt = await import('jsonwebtoken');

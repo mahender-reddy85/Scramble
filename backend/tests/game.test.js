@@ -1,10 +1,7 @@
-/**
- * tests/game.test.js
- * Game API — word bank, room creation / joining, leaderboard, health check.
- */
+
 import { jest } from '@jest/globals';
 
-// ── Mock the database BEFORE importing the app ────────────────────────────────
+
 jest.unstable_mockModule('../db.js', async () => {
   const { default: pool } = await import('../__mocks__/db.js');
   return { default: pool };
@@ -15,7 +12,7 @@ const { createApp } = await import('../app.js');
 const { default: request } = await import('supertest');
 const { default: jwt } = await import('jsonwebtoken');
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+
 let app;
 let authToken;
 const TEST_USER = { id: 'user-test-1', username: 'player1' };
@@ -30,7 +27,7 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// ── /api/health ───────────────────────────────────────────────────────────────
+
 describe('GET /api/health', () => {
   it('returns status OK', async () => {
     const res = await request(app).get('/api/health');
@@ -40,7 +37,7 @@ describe('GET /api/health', () => {
   });
 });
 
-// ── /api/game/words/:difficulty ───────────────────────────────────────────────
+
 describe('GET /api/game/words/:difficulty', () => {
   it('returns word list for easy difficulty', async () => {
     const res = await request(app).get('/api/game/words/easy');
@@ -70,7 +67,7 @@ describe('GET /api/game/words/:difficulty', () => {
   });
 });
 
-// ── /api/game/rooms ───────────────────────────────────────────────────────────
+
 describe('GET /api/game/rooms', () => {
   it('returns available waiting rooms', async () => {
     pool.query.mockResolvedValueOnce({
@@ -90,10 +87,10 @@ describe('GET /api/game/rooms', () => {
 
 describe('POST /api/game/rooms', () => {
   it('creates a room and returns roomId + roomCode', async () => {
-    // 1) room code uniqueness check — not taken
+
     pool.query
-      .mockResolvedValueOnce({ rows: [] })   // SELECT id FROM game_rooms (code check)
-      .mockResolvedValueOnce({ rows: [] });  // INSERT INTO game_rooms
+      .mockResolvedValueOnce({ rows: [] })   
+      .mockResolvedValueOnce({ rows: [] });  
 
     const res = await request(app)
       .post('/api/game/rooms')
@@ -115,10 +112,10 @@ describe('POST /api/game/rooms', () => {
   });
 });
 
-// ── /api/game/rooms/:roomId/join ──────────────────────────────────────────────
+
 describe('POST /api/game/rooms/:roomId/join', () => {
   it('returns 404 when room does not exist or is not waiting', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [] }); // room not found
+    pool.query.mockResolvedValueOnce({ rows: [] }); 
 
     const res = await request(app)
       .post('/api/game/rooms/nonexistent-room/join')
@@ -131,8 +128,8 @@ describe('POST /api/game/rooms/:roomId/join', () => {
 
   it('returns 400 when room is already full', async () => {
     pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 'room-1', status: 'waiting' }] }) // room exists
-      .mockResolvedValueOnce({ rows: [{ count: '2' }] });                     // 2 participants
+      .mockResolvedValueOnce({ rows: [{ id: 'room-1', status: 'waiting' }] }) 
+      .mockResolvedValueOnce({ rows: [{ count: '2' }] });                     
 
     const res = await request(app)
       .post('/api/game/rooms/room-1/join')
@@ -145,9 +142,9 @@ describe('POST /api/game/rooms/:roomId/join', () => {
 
   it('returns 400 when user already joined the room', async () => {
     pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 'room-1', status: 'waiting' }] }) // room exists
-      .mockResolvedValueOnce({ rows: [{ count: '1' }] })                      // 1 participant
-      .mockResolvedValueOnce({ rows: [{ id: 'p-1' }] });                      // already joined
+      .mockResolvedValueOnce({ rows: [{ id: 'room-1', status: 'waiting' }] }) 
+      .mockResolvedValueOnce({ rows: [{ count: '1' }] })                      
+      .mockResolvedValueOnce({ rows: [{ id: 'p-1' }] });                      
 
     const res = await request(app)
       .post('/api/game/rooms/room-1/join')
