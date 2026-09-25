@@ -3,29 +3,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { apiClient } from '@/integrations/apiClient';
-import io from 'socket.io-client';
 
 interface WordItem {
   word: string;
   hint: string;
 }
 
-interface Player {
-  id: string;
-  player_name: string;
-  score: number;
-  current_streak: number;
-  user_id: string;
-}
+import { Player } from '../types';
 
 interface MultiplayerGameProps {
   roomId: string;
   difficulty: 'easy' | 'medium' | 'hard';
   initialWord?: { word: string; hint: string; scrambled: string } | null;
   onExit: () => void;
+  socket: ReturnType<typeof import('socket.io-client').io>;
 }
 
-export default function MultiplayerGame({ roomId, difficulty, initialWord, onExit }: MultiplayerGameProps) {
+export default function MultiplayerGame({ roomId, difficulty, initialWord, onExit, socket }: MultiplayerGameProps) {
   const [currentWord, setCurrentWord] = useState('');
   const [scrambledWord, setScrambledWord] = useState('');
   const [currentHint, setCurrentHint] = useState('');
@@ -69,9 +63,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     }
 
     if (roomId) {
-      socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
-        query: { roomId, userId }
-      });
+      socketRef.current = socket;
 
       socketRef.current.on('connect', () => {
       socketRef.current?.on('newWord', (data: { word?: string; hint?: string; scrambled?: string; round?: number; participants?: Player[]; userId?: string; isCorrect?: boolean; points?: number }) => {
@@ -131,7 +123,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
 
     return () => {
       audioContextRef.current?.close();
-      socketRef.current?.disconnect();
+      // no disconnect
     };
   }, [roomId]);
 
