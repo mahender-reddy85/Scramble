@@ -74,6 +74,29 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       });
 
       socketRef.current.on('connect', () => {
+      socketRef.current?.on('newWord', (data: { word?: string; hint?: string; scrambled?: string; round?: number; participants?: Player[]; userId?: string; isCorrect?: boolean; points?: number }) => {
+        setCurrentWord(data.word);
+        setScrambledWord(data.scrambled);
+        setCurrentHint(data.hint);
+        setAnswer('');
+        setFeedback({ message: '', type: '' });
+        setTimeLeft(20);
+        setShowCountdown(true);
+        setCountdown(3);
+        setRoundCount(data.round);
+      });
+      
+      socketRef.current?.on('answer-submitted', (data: { word?: string; hint?: string; scrambled?: string; round?: number; participants?: Player[]; userId?: string; isCorrect?: boolean; points?: number }) => {
+        setPlayers(data.participants);
+        if (data.userId === currentUserId) {
+           if (data.isCorrect) {
+             setFeedback({ message: 'Correct! +' + data.points + ' points', type: 'success' });
+           } else {
+             setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
+           }
+        }
+      });
+
         socketRef.current?.emit('join-room', {
           roomId,
           userId,
@@ -94,7 +117,13 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       });
 
       socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
-        setPlayers(updatedPlayers);
+        setPlayers(
+          updatedPlayers.map((player) => ({
+            ...player,
+            score: Number(player.score) || 0,
+            current_streak: Number(player.current_streak) || 0,
+          }))
+        );
       });
 
       loadPlayers();

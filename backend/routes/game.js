@@ -232,6 +232,7 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
       const wordItem = words[randomIndex];
       const scrambled = scrambleWord(wordItem.word);
 
+      global.roomCurrentWords.set(roomId, wordItem.word);
       io.to(roomId).emit('newWord', {
         word: wordItem.word,
         hint: wordItem.hint,
@@ -374,7 +375,7 @@ router.post('/update-db', optionalAuth, async (req, res) => {
     `, [roomId]);
     
 
-    const io = req.app.get('socketio');
+    const io = req.app.get('io');
     if (io) {
       io.to(roomId).emit('participantsUpdated', participants.rows);
     }

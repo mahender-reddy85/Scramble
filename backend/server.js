@@ -47,6 +47,7 @@ io.on('connection', (socket) => {
       }
 
       socket.join(roomId);
+      socket.userId = decoded.id;
 
 
       const roomData = await pool.query(`
@@ -64,10 +65,17 @@ io.on('connection', (socket) => {
 
 
       const participants = await pool.query(`
-        SELECT gp.id, gp.player_name, gp.is_ready, gp.user_id
+        SELECT
+          gp.id,
+          COALESCE(gp.player_name, p.username) AS player_name,
+          gp.user_id,
+          gp.score,
+          gp.current_streak,
+          gp.is_ready
         FROM game_participants gp
+        LEFT JOIN users p ON gp.user_id = p.id
         WHERE gp.room_id = $1
-        ORDER BY gp.joined_at
+        ORDER BY gp.score DESC, gp.joined_at ASC
       `, [roomId]);
 
 
@@ -97,21 +105,44 @@ io.on('connection', (socket) => {
 
 
 
-  socket.on('submit-answer', async (data) => {
-    const { roomId, userId, word, isCorrect, points } = data;
+    socket.on('submit-answer', async (data) => {
+    const { roomId, word, timeRemaining } = data;
+    const userId = socket.userId;
+    
+    // Server validates correctness
+    const currentWord = global.roomCurrentWords.get(roomId);
+    const isCorrect = currentWord && word && (word.toUpperCase() === currentWord.toUpperCase());
+
 
     try {
+      const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
+      if (roomData.rows.length === 0) return;
+      
+      const difficulty = roomData.rows[0].difficulty || 'easy';
+      const currentRound = roomData.rows[0].current_round || 0;
+      
+      let pointsToAward = 0;
+      
+      if (isCorrect) {
+        const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
+        const current_streak = participantQuery.rows[0]?.current_streak || 0;
+        
+        const basePoints = difficulty === 'hard' ? 10 : (difficulty === 'medium' ? 8 : 5);
+        const newStreak = current_streak + 1;
+        const streakBonus = newStreak * 3;
+        const timeBonus = Number(timeRemaining) || 0;
+        pointsToAward = Math.floor(basePoints + streakBonus + timeBonus);
+      }
 
       await pool.query(
         'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
-        [roomId, userId, 'answer_submitted', word, isCorrect, points]
+        [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
       );
-
 
       if (isCorrect) {
         await pool.query(
           'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
-          [points, roomId, userId]
+          [pointsToAward, roomId, userId]
         );
       } else {
         await pool.query(
@@ -120,59 +151,54 @@ io.on('connection', (socket) => {
         );
       }
 
-
       const participants = await pool.query(`
-        SELECT gp.*, p.username as player_name
+        SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
         FROM game_participants gp
         LEFT JOIN users p ON gp.user_id = p.id
         WHERE gp.room_id = $1
         ORDER BY gp.score DESC
       `, [roomId]);
 
-
       io.to(roomId).emit('answer-submitted', {
         userId,
         word,
         isCorrect,
-        points,
+        points: pointsToAward,
         participants: participants.rows
       });
 
+      if (isCorrect) {
+        if (roomLocks.get(roomId)) return;
+        roomLocks.set(roomId, true);
+        
+        setTimeout(async () => {
+          try {
+            if (currentRound < 10) { 
+              const words = wordBanks[difficulty];
+              const randomIndex = Math.floor(Math.random() * words.length);
+              const wordItem = words[randomIndex];
+              const scrambled = scrambleWord(wordItem.word);
 
-      setTimeout(async () => {
-        try {
+              await pool.query('UPDATE game_rooms SET current_round = current_round + 1 WHERE id = $1', [roomId]);
 
-          const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
-          const currentRound = roomData.rows[0]?.current_round || 0;
-          const difficulty = roomData.rows[0]?.difficulty || 'easy';
-
-          if (currentRound < 10) { 
-
-            const words = wordBanks[difficulty];
-            const randomIndex = Math.floor(Math.random() * words.length);
-            const wordItem = words[randomIndex];
-            const scrambled = scrambleWord(wordItem.word);
-
-
-            await pool.query('UPDATE game_rooms SET current_round = current_round + 1 WHERE id = $1', [roomId]);
-
-
-            io.to(roomId).emit('newWord', {
-              word: wordItem.word,
-              hint: wordItem.hint,
-              scrambled: scrambled,
-              round: currentRound + 1
-            });
-          } else {
-
-            const winner = participants.rows[0];
-            io.to(roomId).emit('gameEnded', { winner });
+              global.roomCurrentWords.set(roomId, wordItem.word);
+              io.to(roomId).emit('newWord', {
+                word: wordItem.word,
+                hint: wordItem.hint,
+                scrambled: scrambled,
+                round: currentRound + 1
+              });
+            } else {
+              const winner = participants.rows[0];
+              io.to(roomId).emit('gameEnded', { winner });
+            }
+            roomLocks.delete(roomId);
+          } catch (error) {
+            console.error('Error sending next word:', error);
+            roomLocks.delete(roomId);
           }
-        } catch (error) {
-          console.error('Error sending next word:', error);
-        }
-      }, 2500); 
-
+        }, 2500);
+      }
     } catch (error) {
       console.error('Submit answer error:', error);
       socket.emit('error', { message: 'Failed to submit answer' });
@@ -207,6 +233,8 @@ io.on('connection', (socket) => {
     }
   });
 
+const roomLocks = new Map();
+global.roomCurrentWords = new Map();
 const playerFinishedStatus = new Map(); 
 
 socket.on('player-finished', async (data) => {
