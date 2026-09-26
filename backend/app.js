@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { corsOptions } from './utils/cors.js';
 import authRoutes from './routes/auth.js';
 import gameRoutes from './routes/game.js';
 
@@ -21,26 +22,6 @@ export function createApp(io = null) {
       next();
     });
   }
-
-  const clientUrl = process.env.CLIENT_URL || 'https://scramble-eta.vercel.app';
-  const allowedOrigins = [
-    clientUrl,
-    'http://localhost:8080',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ];
-
-  const corsOptions = {
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin)) {
-        return callback(null, true);
-      }
-      return callback(null, true);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-  };
 
   app.use(cors(corsOptions));
   app.options('*', cors(corsOptions));

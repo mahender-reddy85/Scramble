@@ -4,7 +4,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import crypto from 'crypto';
 import { wordBanks, scrambleWord } from '../utils/wordBanks.js';
 import { GAME_CONFIG } from '../utils/gameConfig.js';
-import { setRoomState } from '../utils/roomState.js';
+import { getRoomState, setRoomState } from '../utils/roomState.js';
 
 const router = express.Router();
 
@@ -225,7 +225,8 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
         currentWord: wordItem.word,
         currentHint: wordItem.hint,
         currentRound: 1,
-        locked: false
+        locked: false,
+        roundStartedAt: Date.now()
       });
 
       io.to(roomId).emit('newWord', {
@@ -243,19 +244,46 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
 
 router.post('/rooms/:roomId/answer', authenticateToken, async (req, res) => {
   const { roomId } = req.params;
-  const { word, isCorrect, points } = req.body;
+  const { word } = req.body;
   const userId = req.user.id;
+  const roomState = getRoomState(roomId);
+  const currentWord = roomState.currentWord;
+  const isCorrect = Boolean(currentWord && word && (word.toUpperCase() === currentWord.toUpperCase()));
 
   try {
+    const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
+    if (roomData.rows.length === 0) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    const difficulty = roomData.rows[0].difficulty || 'easy';
+    let pointsToAward = 0;
+
+    if (isCorrect) {
+      const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
+      const current_streak = participantQuery.rows[0]?.current_streak || 0;
+      const basePoints = GAME_CONFIG.basePoints[difficulty] || 5;
+      const newStreak = current_streak + 1;
+      const streakBonus = newStreak * GAME_CONFIG.streakBonusMultiplier;
+
+      let timeBonus = 0;
+      if (roomState.roundStartedAt) {
+        const elapsedSeconds = Math.floor((Date.now() - roomState.roundStartedAt) / 1000);
+        timeBonus = Math.max(0, Math.min(GAME_CONFIG.roundTime, GAME_CONFIG.roundTime - elapsedSeconds));
+      }
+
+      pointsToAward = Math.floor(basePoints + streakBonus + timeBonus);
+    }
+
     await pool.query(
       'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
-      [roomId, userId, 'answer_submitted', word, isCorrect, points]
+      [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
     );
 
     if (isCorrect) {
       await pool.query(
         'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
-        [points, roomId, userId]
+        [pointsToAward, roomId, userId]
       );
     } else {
       await pool.query(
@@ -264,7 +292,7 @@ router.post('/rooms/:roomId/answer', authenticateToken, async (req, res) => {
       );
     }
 
-    res.json({ success: true });
+    res.json({ success: true, isCorrect, points: pointsToAward });
   } catch (error) {
     console.error('Submit answer error:', error);
     res.status(500).json({ error: 'Server error' });

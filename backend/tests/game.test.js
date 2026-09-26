@@ -33,6 +33,36 @@ describe('GET /api/health', () => {
   });
 });
 
+describe('CORS policy', () => {
+  it('allows requests from http://localhost:5173 in non-production', async () => {
+    const res = await request(app)
+      .get('/api/health')
+      .set('Origin', 'http://localhost:5173');
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+  });
+
+  it('rejects untrusted origins by omitting Access-Control-Allow-Origin', async () => {
+    const res = await request(app)
+      .get('/api/health')
+      .set('Origin', 'http://malicious-site.com');
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('rejects stale origins like localhost:3000 and localhost:8080', async () => {
+    const res3000 = await request(app)
+      .get('/api/health')
+      .set('Origin', 'http://localhost:3000');
+    expect(res3000.headers['access-control-allow-origin']).toBeUndefined();
+
+    const res8080 = await request(app)
+      .get('/api/health')
+      .set('Origin', 'http://localhost:8080');
+    expect(res8080.headers['access-control-allow-origin']).toBeUndefined();
+  });
+});
+
 describe('GET /api/game/words/:difficulty', () => {
   it('returns word list for easy difficulty', async () => {
     const res = await request(app).get('/api/game/words/easy');
@@ -164,5 +194,32 @@ describe('POST /api/game/rooms/:roomId/join', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body.error).toBe('Already joined this room');
+  });
+});
+
+describe('POST /api/game/rooms/:roomId/answer', () => {
+  it('calculates score on the server and ignores client-injected points', async () => {
+    const { setRoomState } = await import('../utils/roomState.js');
+    const roomId = 'room-score-test';
+    setRoomState(roomId, {
+      currentWord: 'REACT',
+      roundStartedAt: Date.now() - 2000
+    });
+
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ current_round: 1, difficulty: 'easy' }] })
+      .mockResolvedValueOnce({ rows: [{ current_streak: 1 }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app)
+      .post(`/api/game/rooms/${roomId}/answer`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ word: 'REACT', points: 999999, isCorrect: false });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.isCorrect).toBe(true);
+    expect(res.body.points).toBeLessThan(50);
+    expect(res.body.points).toBeGreaterThan(20);
   });
 });

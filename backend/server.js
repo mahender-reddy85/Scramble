@@ -7,25 +7,19 @@ import { createApp } from './app.js';
 import { wordBanks, scrambleWord } from './utils/wordBanks.js';
 import { GAME_CONFIG } from './utils/gameConfig.js';
 import { getRoomState, setRoomState, deleteRoomState } from './utils/roomState.js';
+import { isOriginAllowed } from './utils/cors.js';
 
 dotenv.config();
 
 const server = http.createServer();
-const clientUrl = process.env.CLIENT_URL || 'https://scramble-eta.vercel.app';
-const allowedOrigins = [
-  clientUrl,
-  'http://localhost:8080',
-  'http://localhost:5173',
-  'http://localhost:3000'
-];
 
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin)) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
-      return callback(null, true);
+      return callback(null, false);
     },
     methods: ['GET', 'POST'],
     credentials: true
@@ -136,11 +130,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('submit-answer', async (data) => {
-    const { roomId, word, timeRemaining } = data;
+    const { roomId, word } = data;
     const userId = socket.userId;
     const roomState = getRoomState(roomId);
     const currentWord = roomState.currentWord;
-    const isCorrect = currentWord && word && (word.toUpperCase() === currentWord.toUpperCase());
+    const isCorrect = Boolean(currentWord && word && (word.toUpperCase() === currentWord.toUpperCase()));
 
     try {
       const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
@@ -156,7 +150,13 @@ io.on('connection', (socket) => {
         const basePoints = GAME_CONFIG.basePoints[difficulty] || 5;
         const newStreak = current_streak + 1;
         const streakBonus = newStreak * GAME_CONFIG.streakBonusMultiplier;
-        const timeBonus = Number(timeRemaining) || 0;
+
+        let timeBonus = 0;
+        if (roomState.roundStartedAt) {
+          const elapsedSeconds = Math.floor((Date.now() - roomState.roundStartedAt) / 1000);
+          timeBonus = Math.max(0, Math.min(GAME_CONFIG.roundTime, GAME_CONFIG.roundTime - elapsedSeconds));
+        }
+
         pointsToAward = Math.floor(basePoints + streakBonus + timeBonus);
       }
 
@@ -211,7 +211,8 @@ io.on('connection', (socket) => {
                 currentWord: wordItem.word,
                 currentHint: wordItem.hint,
                 currentRound: currentRound + 1,
-                locked: false
+                locked: false,
+                roundStartedAt: Date.now()
               });
 
               io.to(roomId).emit('newWord', {

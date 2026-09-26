@@ -7,6 +7,7 @@ export function getRoomState(roomId) {
       currentHint: '',
       currentRound: 1,
       locked: false,
+      roundStartedAt: null,
       finishedPlayers: new Set()
     });
   }
