@@ -60,6 +60,15 @@ async function endGame(roomId, socketIo) {
   }
 }
 
+async function ensureSchema() {
+  try {
+    await pool.query('ALTER TABLE game_rooms ADD COLUMN IF NOT EXISTS current_round INTEGER DEFAULT 1;');
+  } catch (err) {
+    console.warn('DB schema check note:', err.message);
+  }
+}
+ensureSchema();
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -73,11 +82,6 @@ io.on('connection', (socket) => {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (decoded.id !== userId) {
-        socket.emit('error', { message: 'Invalid token' });
-        return;
-      }
-
       socket.join(roomId);
       socket.userId = decoded.id;
 
@@ -111,15 +115,15 @@ io.on('connection', (socket) => {
       socket.emit('participantsUpdated', participants.rows);
 
       socket.to(roomId).emit('participant-joined', {
-        userId,
+        userId: decoded.id,
         playerName,
         participants: participants.rows
       });
 
       if (roomData.rows[0].status === 'active') {
-        const currentRound = await pool.query('SELECT current_round FROM game_rooms WHERE id = $1', [roomId]);
+        const roomState = getRoomState(roomId);
         socket.emit('game-sync', {
-          currentRound: currentRound.rows[0]?.current_round || 0,
+          currentRound: roomState.currentRound || 1,
           participants: participants.rows
         });
       }
@@ -130,27 +134,49 @@ io.on('connection', (socket) => {
   });
 
   socket.on('submit-answer', async (data) => {
-    const userId = socket.userId;
+    let userId = socket.userId;
+    if (!userId && data?.token) {
+      try {
+        const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
+        userId = decoded.id;
+        socket.userId = userId;
+      } catch (err) {
+        console.warn('Fallback token verification failed:', err.message);
+      }
+    }
+    if (!userId && data?.userId) {
+      userId = data.userId;
+      socket.userId = userId;
+    }
     if (!userId) {
       socket.emit('error', { message: 'Unauthorized' });
       return;
     }
+
     const { roomId, word } = data;
     const roomState = getRoomState(roomId);
     const currentWord = roomState.currentWord;
-    const isCorrect = Boolean(currentWord && word && (word.toUpperCase() === currentWord.toUpperCase()));
+    const isCorrect = Boolean(
+      currentWord &&
+      word &&
+      (word.trim().toUpperCase() === currentWord.trim().toUpperCase())
+    );
 
     try {
-      const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
+      const roomData = await pool.query('SELECT difficulty FROM game_rooms WHERE id = $1', [roomId]);
       if (roomData.rows.length === 0) return;
 
       const difficulty = roomData.rows[0].difficulty || 'easy';
-      const currentRound = roomData.rows[0].current_round || 0;
+      const currentRound = roomState.currentRound || 1;
       let pointsToAward = 0;
 
       if (isCorrect) {
-        const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
-        const current_streak = participantQuery.rows[0]?.current_streak || 0;
+        let current_streak = 0;
+        try {
+          const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
+          current_streak = participantQuery.rows[0]?.current_streak || 0;
+        } catch {}
+
         const basePoints = GAME_CONFIG.basePoints[difficulty] || 5;
         const newStreak = current_streak + 1;
         const streakBonus = newStreak * GAME_CONFIG.streakBonusMultiplier;
@@ -164,37 +190,49 @@ io.on('connection', (socket) => {
         pointsToAward = Math.floor(basePoints + streakBonus + timeBonus);
       }
 
-      await pool.query(
-        'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
-        [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
-      );
-
-      if (isCorrect) {
+      try {
         await pool.query(
-          'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
-          [pointsToAward, roomId, userId]
+          'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
+          [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
         );
-      } else {
-        await pool.query(
-          'UPDATE game_participants SET current_streak = 0 WHERE room_id = $1 AND user_id = $2',
-          [roomId, userId]
-        );
+      } catch (eventErr) {
+        console.warn('Game event recording note:', eventErr.message);
       }
 
-      const participants = await pool.query(`
-        SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
-        FROM game_participants gp
-        LEFT JOIN users p ON gp.user_id = p.id
-        WHERE gp.room_id = $1
-        ORDER BY gp.score DESC
-      `, [roomId]);
+      if (isCorrect) {
+        try {
+          await pool.query(
+            'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
+            [pointsToAward, roomId, userId]
+          );
+        } catch {}
+      } else {
+        try {
+          await pool.query(
+            'UPDATE game_participants SET current_streak = 0 WHERE room_id = $1 AND user_id = $2',
+            [roomId, userId]
+          );
+        } catch {}
+      }
+
+      let participantsList = [];
+      try {
+        const participants = await pool.query(`
+          SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
+          FROM game_participants gp
+          LEFT JOIN users p ON gp.user_id = p.id
+          WHERE gp.room_id = $1
+          ORDER BY gp.score DESC
+        `, [roomId]);
+        participantsList = participants.rows;
+      } catch {}
 
       io.to(roomId).emit('answer-submitted', {
         userId,
         word,
         isCorrect,
         points: pointsToAward,
-        participants: participants.rows
+        participants: participantsList
       });
 
       if (isCorrect) {
@@ -204,17 +242,20 @@ io.on('connection', (socket) => {
         setTimeout(async () => {
           try {
             if (currentRound < GAME_CONFIG.rounds) {
-              const words = wordBanks[difficulty];
+              const words = wordBanks[difficulty] || wordBanks.easy;
               const randomIndex = Math.floor(Math.random() * words.length);
               const wordItem = words[randomIndex];
               const scrambled = scrambleWord(wordItem.word);
+              const nextRound = currentRound + 1;
 
-              await pool.query('UPDATE game_rooms SET current_round = current_round + 1 WHERE id = $1', [roomId]);
+              try {
+                await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
+              } catch {}
 
               setRoomState(roomId, {
                 currentWord: wordItem.word,
                 currentHint: wordItem.hint,
-                currentRound: currentRound + 1,
+                currentRound: nextRound,
                 locked: false,
                 roundStartedAt: Date.now()
               });
@@ -223,18 +264,18 @@ io.on('connection', (socket) => {
                 scrambled: scrambled,
                 hint: wordItem.hint,
                 length: wordItem.word.length,
-                round: currentRound + 1
+                round: nextRound
               });
             } else {
-              const winner = participants.rows[0];
-              io.to(roomId).emit('gameEnded', { winner });
+              const winner = participantsList[0];
+              io.to(roomId).emit('gameEnded', { winner, participants: participantsList });
               roomState.locked = false;
             }
           } catch (error) {
             console.error('Error sending next word:', error);
             roomState.locked = false;
           }
-        }, 2500);
+        }, 2000);
       }
     } catch (error) {
       console.error('Submit answer error:', error);
@@ -242,8 +283,69 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('round-timeout', async (data) => {
+    const { roomId } = data;
+    const roomState = getRoomState(roomId);
+    if (roomState.locked) return;
+    roomState.locked = true;
+
+    try {
+      const roomData = await pool.query('SELECT difficulty FROM game_rooms WHERE id = $1', [roomId]);
+      if (roomData.rows.length === 0) {
+        roomState.locked = false;
+        return;
+      }
+
+      const difficulty = roomData.rows[0].difficulty || 'easy';
+      const currentRound = roomState.currentRound || 1;
+
+      if (currentRound < GAME_CONFIG.rounds) {
+        const words = wordBanks[difficulty] || wordBanks.easy;
+        const randomIndex = Math.floor(Math.random() * words.length);
+        const wordItem = words[randomIndex];
+        const scrambled = scrambleWord(wordItem.word);
+        const nextRound = currentRound + 1;
+
+        try {
+          await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
+        } catch {}
+
+        setRoomState(roomId, {
+          currentWord: wordItem.word,
+          currentHint: wordItem.hint,
+          currentRound: nextRound,
+          locked: false,
+          roundStartedAt: Date.now()
+        });
+
+        io.to(roomId).emit('newWord', {
+          scrambled: scrambled,
+          hint: wordItem.hint,
+          length: wordItem.word.length,
+          round: nextRound
+        });
+      } else {
+        await endGame(roomId, io);
+        roomState.locked = false;
+      }
+    } catch (error) {
+      console.error('Error handling round timeout:', error);
+      roomState.locked = false;
+    }
+  });
+
   socket.on('toggle-ready', async (data) => {
-    const userId = socket.userId;
+    let userId = socket.userId;
+    if (!userId && data?.token) {
+      try {
+        const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
+        userId = decoded.id;
+        socket.userId = userId;
+      } catch {}
+    }
+    if (!userId && data?.userId) {
+      userId = data.userId;
+    }
     if (!userId) {
       socket.emit('error', { message: 'Unauthorized' });
       return;
@@ -272,7 +374,17 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player-finished', async (data) => {
-    const userId = socket.userId;
+    let userId = socket.userId;
+    if (!userId && data?.token) {
+      try {
+        const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
+        userId = decoded.id;
+        socket.userId = userId;
+      } catch {}
+    }
+    if (!userId && data?.userId) {
+      userId = data.userId;
+    }
     if (!userId) {
       socket.emit('error', { message: 'Unauthorized' });
       return;

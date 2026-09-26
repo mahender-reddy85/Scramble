@@ -57,6 +57,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
     socketRef.current = io(baseUrl, {
+      auth: { token },
       query: { roomId, userId: currentUserId },
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,

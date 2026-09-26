@@ -33,14 +33,47 @@ export default function WordScramble() {
   const [shouldLoadWordOnReady, setShouldLoadWordOnReady] = useState(false);
 
   useEffect(() => {
+    const FALLBACK_WORDS: Record<string, { word: string; hint: string }[]> = {
+      easy: [
+        { word: 'APPLE', hint: 'A common fruit' },
+        { word: 'HOUSE', hint: 'A place to live' },
+        { word: 'WATER', hint: 'Essential for life' },
+        { word: 'MUSIC', hint: 'Sound that entertains' },
+        { word: 'LIGHT', hint: 'Opposite of dark' },
+        { word: 'HAPPY', hint: 'A positive emotion' },
+        { word: 'PHONE', hint: 'Communication device' },
+        { word: 'CHAIR', hint: 'Furniture to sit on' },
+        { word: 'PAPER', hint: 'Used for writing' },
+        { word: 'CLOUD', hint: 'Floats in the sky' }
+      ],
+      medium: [
+        { word: 'PLANET', hint: 'Celestial body orbiting a star' },
+        { word: 'GARDEN', hint: 'Place where flowers and plants grow' },
+        { word: 'WINTER', hint: 'Coldest season of the year' },
+        { word: 'FOREST', hint: 'Dense collection of trees' },
+        { word: 'BRIDGE', hint: 'Structure built over obstacles' }
+      ],
+      hard: [
+        { word: 'SYMPHONY', hint: 'Elaborate musical composition' },
+        { word: 'HORIZON', hint: 'Where earth meets the sky' },
+        { word: 'PYRAMID', hint: 'Ancient triangular structure' },
+        { word: 'CRYSTAL', hint: 'Clear transparent mineral' },
+        { word: 'GALAXY', hint: 'System of billions of stars' }
+      ]
+    };
+
     async function fetchWords() {
       setIsLoadingWords(true);
       try {
         const response = await apiClient.get(`/api/game/words/${difficulty}`);
-        setWordList(response.words || []);
+        if (response?.words?.length) {
+          setWordList(response.words);
+        } else {
+          setWordList(FALLBACK_WORDS[difficulty] || FALLBACK_WORDS.easy);
+        }
       } catch {
-        setWordList([]);
-        toast.error('Failed to load words. Please try again.');
+        // Fallback to built-in words if backend is waking up or offline
+        setWordList(FALLBACK_WORDS[difficulty] || FALLBACK_WORDS.easy);
       } finally {
         setIsLoadingWords(false);
       }
@@ -211,7 +244,7 @@ export default function WordScramble() {
       return;
     }
 
-    if (userAnswer === currentWord) {
+    if (userAnswer === currentWord.trim().toUpperCase()) {
       handleCorrectAnswer();
     } else {
       handleWrongAnswer();

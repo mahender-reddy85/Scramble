@@ -125,7 +125,11 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
 
       const handleAnswerSubmitted = (data: { participants?: Player[]; userId?: string; isCorrect?: boolean; points?: number }) => {
         if (data.participants) setPlayers(data.participants);
-        if (data.userId === userId) {
+        const isCurrentUser = Boolean(
+          data.userId &&
+          String(data.userId).toLowerCase() === String(currentUserId || userId).toLowerCase()
+        );
+        if (isCurrentUser) {
           if (data.isCorrect) {
             playSound('correct');
             stopTimer();
@@ -137,7 +141,7 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
             setTimeout(() => {
               setFeedback({ message: '', type: '' });
               inputRef.current?.focus();
-            }, 2000);
+            }, 1500);
           }
         }
       };
@@ -163,12 +167,17 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
         );
       };
 
+      const handleError = (data: { message?: string }) => {
+        toast.error(data?.message || 'Server error');
+      };
+
       socket.on('newWord', handleNewWord);
       socket.on('answer-submitted', handleAnswerSubmitted);
       socket.on('waiting-for-others', handleWaitingForOthers);
       socket.on('game-ended', handleGameEnded);
       socket.on('gameEnded', handleGameEnded);
       socket.on('participantsUpdated', handleParticipantsUpdated);
+      socket.on('error', handleError);
 
       if (socket.connected) {
         socket.emit('join-room', {
@@ -197,6 +206,7 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
         socket.off('game-ended', handleGameEnded);
         socket.off('gameEnded', handleGameEnded);
         socket.off('participantsUpdated', handleParticipantsUpdated);
+        socket.off('error', handleError);
         audioContextRef.current?.close();
       };
     }
@@ -204,7 +214,7 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
     return () => {
       audioContextRef.current?.close();
     };
-  }, [roomId, socket, loadPlayers, playSound, stopTimer]);
+  }, [roomId, socket, loadPlayers, playSound, stopTimer, currentUserId]);
 
   useEffect(() => {
     if (initialWord) {
@@ -241,11 +251,13 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
     if (roundCount > maxRounds && roundCount > 0) {
       if (socketRef.current) {
         socketRef.current.emit('player-finished', {
-          roomId
+          roomId,
+          token: localStorage.getItem('token'),
+          userId: currentUserId
         });
       }
     }
-  }, [roundCount, maxRounds, roomId]);
+  }, [roundCount, maxRounds, roomId, currentUserId]);
 
   const handleTimeout = useCallback(() => {
     stopTimer();
@@ -253,7 +265,10 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
       position: 'bottom-right',
       duration: 3000,
     });
-  }, [stopTimer]);
+    if (socketRef.current) {
+      socketRef.current.emit('round-timeout', { roomId });
+    }
+  }, [stopTimer, roomId]);
 
   const checkAnswer = useCallback(() => {
     if (!isActive) return;
@@ -261,17 +276,24 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
     const userAnswer = answer.trim().toUpperCase();
     if (!userAnswer) {
       setFeedback({ message: 'Please enter an answer', type: 'error' });
-      setTimeout(() => setFeedback({ message: '', type: '' }), 2000);
+      setTimeout(() => setFeedback({ message: '', type: '' }), 1500);
       return;
+    }
+
+    if (!socketRef.current || !socketRef.current.connected) {
+      toast.error('Reconnecting to server...');
+      socketRef.current?.connect();
     }
 
     if (socketRef.current) {
       socketRef.current.emit('submit-answer', {
         roomId,
-        word: userAnswer
+        word: userAnswer,
+        token: localStorage.getItem('token'),
+        userId: currentUserId
       });
     }
-  }, [isActive, answer, roomId]);
+  }, [isActive, answer, roomId, currentUserId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {

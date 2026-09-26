@@ -23,6 +23,7 @@ async function initDatabase() {
         created_by UUID REFERENCES users(id) ON DELETE CASCADE,
         difficulty VARCHAR(20) NOT NULL DEFAULT 'easy',
         status VARCHAR(20) NOT NULL DEFAULT 'waiting',
+        current_round INTEGER DEFAULT 1,
         started_at TIMESTAMP,
         finished_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW(),

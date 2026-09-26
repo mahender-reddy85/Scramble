@@ -248,10 +248,14 @@ router.post('/rooms/:roomId/answer', authenticateToken, async (req, res) => {
   const userId = req.user.id;
   const roomState = getRoomState(roomId);
   const currentWord = roomState.currentWord;
-  const isCorrect = Boolean(currentWord && word && (word.toUpperCase() === currentWord.toUpperCase()));
+  const isCorrect = Boolean(
+    currentWord &&
+    word &&
+    (word.trim().toUpperCase() === currentWord.trim().toUpperCase())
+  );
 
   try {
-    const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
+    const roomData = await pool.query('SELECT difficulty FROM game_rooms WHERE id = $1', [roomId]);
     if (roomData.rows.length === 0) {
       return res.status(404).json({ error: 'Room not found' });
     }
