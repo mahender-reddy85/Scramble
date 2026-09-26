@@ -8,39 +8,6 @@ import MultiplayerLobby from './MultiplayerLobby';
 import UserMenu from './UserMenu';
 import { useNavigate } from 'react-router-dom';
 
-const FALLBACK_WORDS: Record<'easy' | 'medium' | 'hard', Array<{ word: string; hint: string }>> = {
-  easy: [
-    { word: 'APPLE', hint: 'A common fruit' },
-    { word: 'HOUSE', hint: 'A place to live' },
-    { word: 'WATER', hint: 'Essential for life' },
-    { word: 'MUSIC', hint: 'Sound that entertains' },
-    { word: 'LIGHT', hint: 'Opposite of dark' },
-    { word: 'HAPPY', hint: 'A positive emotion' },
-    { word: 'PHONE', hint: 'Communication device' },
-    { word: 'CHAIR', hint: 'Furniture to sit on' },
-    { word: 'CLOUD', hint: 'Floats in the sky' },
-    { word: 'BREAD', hint: 'Used for sandwiches' }
-  ],
-  medium: [
-    { word: 'PLANET', hint: 'Celestial body orbiting a star' },
-    { word: 'GARDEN', hint: 'Plot of ground for plants' },
-    { word: 'BRIDGE', hint: 'Structure spanning an obstacle' },
-    { word: 'FOREST', hint: 'Large area covered with trees' },
-    { word: 'SILVER', hint: 'Precious metallic element' },
-    { word: 'CASTLE', hint: 'Fortified residence' },
-    { word: 'WINTER', hint: 'Coldest season' },
-    { word: 'DOCTOR', hint: 'Medical professional' }
-  ],
-  hard: [
-    { word: 'ELEPHANT', hint: 'Largest living land animal' },
-    { word: 'MOUNTAIN', hint: 'Large natural elevation' },
-    { word: 'DIAMOND', hint: 'Precious stone of pure carbon' },
-    { word: 'PYRAMID', hint: 'Monumental structure with triangular sides' },
-    { word: 'HOSPITAL', hint: 'Institution for medical treatment' },
-    { word: 'NOTEBOOK', hint: 'Book with blank pages for writing' }
-  ]
-};
-
 export default function WordScramble() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -54,7 +21,6 @@ export default function WordScramble() {
   const [timeLeft, setTimeLeft] = useState(15);
   const [isActive, setIsActive] = useState(false);
   const [answer, setAnswer] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
   const [showStart, setShowStart] = useState(true);
   const [showGameStarted, setShowGameStarted] = useState(false);
@@ -71,13 +37,10 @@ export default function WordScramble() {
       setIsLoadingWords(true);
       try {
         const response = await apiClient.get(`/api/game/words/${difficulty}`);
-        if (response?.words && response.words.length > 0) {
-          setWordList(response.words);
-        } else {
-          setWordList(FALLBACK_WORDS[difficulty] || FALLBACK_WORDS.easy);
-        }
+        setWordList(response.words || []);
       } catch {
-        setWordList(FALLBACK_WORDS[difficulty] || FALLBACK_WORDS.easy);
+        setWordList([]);
+        toast.error('Failed to load words. Please try again.');
       } finally {
         setIsLoadingWords(false);
       }
@@ -137,19 +100,16 @@ export default function WordScramble() {
   }, []);
 
   const scrambleWord = useCallback((word: string): string => {
-    if (!word || word.length <= 1) return word;
-    const letters = word.split('');
-    let attempts = 0;
-    while (attempts < 20) {
+    const scramble = (str: string): string => {
+      const letters = str.split('');
       for (let i = letters.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [letters[i], letters[j]] = [letters[j], letters[i]];
       }
       const scrambled = letters.join('');
-      if (scrambled !== word) return scrambled;
-      attempts++;
-    }
-    return letters.reverse().join('');
+      return scrambled === str ? scramble(str) : scrambled;
+    };
+    return scramble(word);
   }, []);
 
   const loadNewWord = useCallback(() => {
@@ -212,7 +172,6 @@ export default function WordScramble() {
   const handleCorrectAnswer = useCallback(() => {
     stopTimer();
     playSound('correct');
-    setAnswer('');
 
     const basePoints = Number(getBasePoints()) || 5;
     const currentStreak = Number(streak) || 0;
@@ -235,15 +194,15 @@ export default function WordScramble() {
     playSound('wrong');
     setStreak(0);
     setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
+    setAnswer('');
     setTimeout(() => {
       setFeedback({ message: '', type: '' });
       inputRef.current?.focus();
-      inputRef.current?.select();
-    }, 1500);
+    }, 2000);
   }, [playSound]);
 
   const checkAnswer = useCallback(() => {
-    if (!isActive || isSubmitting) return;
+    if (!isActive) return;
 
     const userAnswer = answer.trim().toUpperCase();
     if (!userAnswer) {
@@ -252,14 +211,12 @@ export default function WordScramble() {
       return;
     }
 
-    setIsSubmitting(true);
-    if (userAnswer === currentWord.trim().toUpperCase()) {
+    if (userAnswer === currentWord) {
       handleCorrectAnswer();
     } else {
       handleWrongAnswer();
     }
-    setTimeout(() => setIsSubmitting(false), 300);
-  }, [isActive, isSubmitting, answer, currentWord, handleCorrectAnswer, handleWrongAnswer]);
+  }, [isActive, answer, currentWord, handleCorrectAnswer, handleWrongAnswer]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -317,7 +274,7 @@ export default function WordScramble() {
       return;
     }
     setShowGameStarted(false);
-    loadNewWord();
+    setTimeout(() => loadNewWord(), 100);
   };
 
   const toggleHint = () => {
@@ -533,10 +490,10 @@ export default function WordScramble() {
                 />
                 <Button
                   onClick={checkAnswer}
-                  disabled={!isActive || isSubmitting}
-                  className="px-6 rounded-xl font-semibold min-w-[90px]"
+                  disabled={!isActive}
+                  className="px-6 rounded-xl font-semibold"
                 >
-                  {isSubmitting ? 'Checking...' : 'Submit'}
+                  Submit
                 </Button>
               </div>
               <Button

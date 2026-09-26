@@ -77,7 +77,7 @@ Scramble/
 
 ```
 Browser (React)
-    │  REST calls (fetch)
+    │  REST calls (fetch/axios)
     ▼
 Express REST API  ──► PostgreSQL (pg pool)
     │
@@ -240,7 +240,7 @@ The server uses Socket.io for real-time multiplayer synchronization.
 |-------|---------|-------------|
 | `join-room` | `{ roomId, userId, playerName, token }` | Authenticate and join a Socket.io room |
 | `toggle-ready` | `{ roomId, userId, is_ready }` | Toggle ready status |
-| `submit-answer` | `{ roomId, word, timeRemaining }` | Submit answer for server-authoritative scoring |
+| `submit-answer` | `{ roomId, userId, word, isCorrect, points }` | Submit an answer; triggers next-word broadcast |
 | `leave-room` | `{ roomId, userId }` | Leave the room |
 
 ### Server → Client
@@ -250,10 +250,9 @@ The server uses Socket.io for real-time multiplayer synchronization.
 | `participantsUpdated` | `[participants]` | Broadcast updated participant list |
 | `participant-joined` | `{ userId, playerName, participants }` | Notify when a new player joins |
 | `participant-left` | `{ userId }` | Notify when a player leaves |
-| `answer-submitted` | `{ userId, word, isCorrect, points, participants }` | Broadcast answer result & updated scores |
-| `newWord` | `{ word, hint, scrambled, round, totalRounds }` | Send the next scrambled word to all players |
-| `round-timeout` | `{ word, round }` | Notify when round time expires without a winner |
-| `game-ended` / `gameEnded` | `{ winner, participants }` | Notify all players the game is over |
+| `answer-submitted` | `{ userId, word, isCorrect, points, participants }` | Broadcast answer result to all players |
+| `newWord` | `{ word, hint, scrambled, round }` | Send the next scrambled word to all players |
+| `gameEnded` | `{ winner }` | Notify all players the game is over |
 | `game-sync` | `{ currentRound, participants }` | Sync a late-joining player to current game state |
 | `error` | `{ message }` | Error notification |
 

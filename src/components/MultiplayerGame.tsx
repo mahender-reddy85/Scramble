@@ -12,19 +12,9 @@ interface MultiplayerGameProps {
   initialWord?: { word: string; hint: string; scrambled: string } | null;
   onExit: () => void;
   socket: Socket | null;
-  currentUserId?: string;
-  playerName?: string;
 }
 
-export default function MultiplayerGame({
-  roomId,
-  difficulty,
-  initialWord,
-  onExit,
-  socket,
-  currentUserId: propUserId,
-  playerName: propPlayerName
-}: MultiplayerGameProps) {
+export default function MultiplayerGame({ roomId, difficulty, initialWord, onExit, socket }: MultiplayerGameProps) {
   const [currentWord, setCurrentWord] = useState('');
   const [scrambledWord, setScrambledWord] = useState('');
   const [currentHint, setCurrentHint] = useState('');
@@ -37,7 +27,7 @@ export default function MultiplayerGame({
   const [showHint, setShowHint] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string>(propUserId || '');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [gameEnded, setGameEnded] = useState(false);
   const [waitingForOthers, setWaitingForOthers] = useState(false);
   const [winner, setWinner] = useState<Player | null>(null);
@@ -47,31 +37,132 @@ export default function MultiplayerGame({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const isSendingNewWordEventRef = useRef(false);
+  const isSendingAnswerEventRef = useRef(false);
   const socketRef = useRef<Socket | null>(null);
+  const playerNameRef = useRef<string>('');
 
-  const token = localStorage.getItem('token');
-  let tokenUserId = '';
-  let tokenUsername = '';
-  if (token) {
+  const loadPlayers = useCallback(async () => {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      tokenUserId = payload.id || payload.user?.id || '';
-      tokenUsername = payload.username || payload.user?.username || '';
+      const data = await apiClient.get(`/api/game/participants/${roomId}`);
+      setPlayers(data || []);
     } catch {
-      // ignore
+      setPlayers([]);
     }
-  }
+  }, [roomId]);
 
-  const effectiveUserId = propUserId || currentUserId || tokenUserId || 'anonymous';
-  const effectivePlayerName = propPlayerName || tokenUsername || '';
-
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
+  useEffect(() => {
+    audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const token = localStorage.getItem('token');
+    let userId = 'anonymous';
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        userId = payload.id || payload.user?.id || 'anonymous';
+        setCurrentUserId(userId);
+      } catch {
+        setCurrentUserId('anonymous');
+      }
     }
-    setIsActive(false);
-  }, []);
+
+    if (roomId && socket) {
+      socketRef.current = socket;
+
+      const handleNewWord = (data: { word?: string; hint?: string; scrambled?: string; round?: number }) => {
+        if (data.word) setCurrentWord(data.word);
+        if (data.scrambled) setScrambledWord(data.scrambled);
+        if (data.hint) setCurrentHint(data.hint);
+        setAnswer('');
+        setFeedback({ message: '', type: '' });
+        setTimeLeft(20);
+        setShowCountdown(true);
+        setCountdown(3);
+        if (data.round) setRoundCount(data.round);
+      };
+
+      const handleAnswerSubmitted = (data: { participants?: Player[]; userId?: string; isCorrect?: boolean; points?: number }) => {
+        if (data.participants) setPlayers(data.participants);
+        if (data.userId === userId) {
+          if (data.isCorrect) {
+            setFeedback({ message: `Correct! +${data.points} points`, type: 'success' });
+          } else {
+            setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
+          }
+        }
+      };
+
+      const handleWaitingForOthers = () => {
+        setWaitingForOthers(true);
+      };
+
+      const handleGameEnded = (data: { winner: Player; participants: Player[] }) => {
+        setWinner(data.winner);
+        setPlayers(data.participants);
+        setGameEnded(true);
+        setWaitingForOthers(false);
+      };
+
+      const handleParticipantsUpdated = (updatedPlayers: Player[]) => {
+        setPlayers(
+          updatedPlayers.map((player) => ({
+            ...player,
+            score: Number(player.score) || 0,
+            current_streak: Number(player.current_streak) || 0,
+          }))
+        );
+      };
+
+      socket.on('newWord', handleNewWord);
+      socket.on('answer-submitted', handleAnswerSubmitted);
+      socket.on('waiting-for-others', handleWaitingForOthers);
+      socket.on('game-ended', handleGameEnded);
+      socket.on('participantsUpdated', handleParticipantsUpdated);
+
+      if (socket.connected) {
+        socket.emit('join-room', {
+          roomId,
+          userId,
+          playerName: playerNameRef.current,
+          token
+        });
+      } else {
+        socket.once('connect', () => {
+          socket.emit('join-room', {
+            roomId,
+            userId,
+            playerName: playerNameRef.current,
+            token
+          });
+        });
+      }
+
+      loadPlayers();
+
+      return () => {
+        socket.off('newWord', handleNewWord);
+        socket.off('answer-submitted', handleAnswerSubmitted);
+        socket.off('waiting-for-others', handleWaitingForOthers);
+        socket.off('game-ended', handleGameEnded);
+        socket.off('participantsUpdated', handleParticipantsUpdated);
+        audioContextRef.current?.close();
+      };
+    }
+
+    return () => {
+      audioContextRef.current?.close();
+    };
+  }, [roomId, socket, loadPlayers]);
+
+  useEffect(() => {
+    if (initialWord) {
+      setCurrentWord(initialWord.word);
+      setScrambledWord(initialWord.scrambled);
+      setCurrentHint(initialWord.hint);
+      setIsActive(true);
+      inputRef.current?.focus();
+      setRoundCount(prev => prev === 0 ? 1 : prev);
+    }
+  }, [initialWord]);
 
   const playSound = useCallback((type: 'correct' | 'wrong' | 'warning') => {
     const soundEnabled = localStorage.getItem('sound-enabled') !== 'false';
@@ -110,216 +201,250 @@ export default function MultiplayerGame({
     }
   }, []);
 
-  const loadPlayers = useCallback(async () => {
-    try {
-      const data = await apiClient.get(`/api/game/participants/${roomId}`);
-      setPlayers(data || []);
-    } catch {
-      setPlayers([]);
-    }
-  }, [roomId]);
+  const scrambleWord = useCallback((word: string): string => {
+    const scramble = (str: string): string => {
+      const letters = str.split('');
+      for (let i = letters.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [letters[i], letters[j]] = [letters[j], letters[i]];
+      }
+      const scrambled = letters.join('');
+      return scrambled === str ? scramble(str) : scrambled;
+    };
+    return scramble(word);
+  }, []);
 
   useEffect(() => {
-    if (!showCountdown) return;
+    if (roomId) {
+      loadPlayers();
+    }
+  }, [roomId, loadPlayers]);
 
-    if (countdown > 1) {
-      const timer = setTimeout(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
+  const updatePlayerScore = useCallback(async (points: number, newStreak: number) => {
+    const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
+    if (!currentPlayer) return;
+
+    try {
+      await apiClient.post('/api/game/update-db', {
+        roomId,
+        userId: currentUserId,
+        points,
+        streak: newStreak
+      });
+      const newScore = (Number(currentPlayer.score) || 0) + points;
+      setPlayers(prev => prev.map(p => {
+        const p_uid = String(p.user_id).toLowerCase();
+        const c_uid = String(currentUserId).toLowerCase();
+        return p_uid === c_uid ? { ...p, score: newScore, current_streak: newStreak } : p;
+      }));
+    } catch {
+      setPlayers(prev => prev);
+    }
+  }, [currentUserId, players, roomId]);
+
+  const loadNewWord = useCallback(async (currentRound: number) => {
+    if (currentRound > maxRounds) {
+      return;
     }
 
-    if (countdown <= 1) {
-      const timer = setTimeout(() => {
-        setShowCountdown(false);
-        setIsActive(true);
-        setTimeLeft(20);
-        setTimeout(() => inputRef.current?.focus(), 100);
-      }, 1000);
-      return () => clearTimeout(timer);
+    try {
+      const response = await apiClient.get(`/api/game/words/${difficulty}`);
+      const words = response.words;
+      const randomIndex = Math.floor(Math.random() * words.length);
+      const wordItem = words[randomIndex];
+      const newScrambled = scrambleWord(wordItem.word);
+
+      setCurrentWord(wordItem.word);
+      setScrambledWord(newScrambled);
+      setCurrentHint(wordItem.hint);
+      setAnswer('');
+      setFeedback({ message: '', type: '' });
+      setTimeLeft(20);
+      setShowCountdown(true);
+      setCountdown(3);
+      setIsActive(false);
+      setShowHint(false);
+      setHintUsed(false);
+
+      if (isSendingNewWordEventRef.current) return;
+      isSendingNewWordEventRef.current = true;
+      try {
+        await apiClient.post('/api/game/events', {
+          room_id: roomId,
+          user_id: currentUserId,
+          event_type: 'new_word',
+          current_word: wordItem.word
+        });
+        isSendingNewWordEventRef.current = false;
+      } catch {
+        isSendingNewWordEventRef.current = false;
+      }
+    } catch {
+      return;
     }
+  }, [difficulty, roomId, currentUserId, maxRounds, scrambleWord]);
+
+  useEffect(() => {
+    let countdownInterval: NodeJS.Timeout;
+    if (showCountdown && countdown > 0) {
+      countdownInterval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            setShowCountdown(false);
+            setIsActive(true);
+            setTimeLeft(20);
+            inputRef.current?.focus();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(countdownInterval);
   }, [showCountdown, countdown]);
 
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    if (effectiveUserId && effectiveUserId !== 'anonymous') {
-      setCurrentUserId(effectiveUserId);
-    }
-
-    if (roomId && socket) {
-      socketRef.current = socket;
-
-      const handleNewWord = (data: { word?: string; hint?: string; scrambled?: string; round?: number }) => {
-        if (data.word) setCurrentWord(data.word);
-        if (data.scrambled) setScrambledWord(data.scrambled);
-        if (data.hint) setCurrentHint(data.hint);
-        setAnswer('');
-        setFeedback({ message: '', type: '' });
-        setTimeLeft(20);
-        setShowCountdown(true);
-        setCountdown(3);
-        setIsActive(false);
-        setShowHint(false);
-        setHintUsed(false);
-        if (data.round) setRoundCount(data.round);
-      };
-
-      const handleAnswerSubmitted = (data: {
-        participants?: Player[];
-        userId?: string;
-        word?: string;
-        isCorrect?: boolean;
-        points?: number;
-      }) => {
-        if (data.participants) {
-          setPlayers(
-            data.participants.map((player) => ({
-              ...player,
-              score: Number(player.score) || 0,
-              current_streak: Number(player.current_streak) || 0,
-            }))
-          );
-        }
-
-        setIsSubmitting(false);
-        const isMe = String(data.userId) === String(effectiveUserId);
-
-        if (isMe) {
-          if (data.isCorrect) {
-            playSound('correct');
-            stopTimer();
-            setAnswer('');
-            setFeedback({ message: `Correct! +${data.points || 0} points`, type: 'success' });
-          } else {
-            playSound('wrong');
-            setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
-            setTimeout(() => {
-              setFeedback({ message: '', type: '' });
-              inputRef.current?.focus();
-              inputRef.current?.select();
-            }, 1500);
+    if (roundCount > maxRounds && roundCount > 0) {
+      const handlePlayerFinished = async () => {
+        try {
+          if (socketRef.current) {
+            socketRef.current.emit('player-finished', {
+              roomId,
+              userId: currentUserId
+            });
           }
-        } else if (data.isCorrect) {
-          stopTimer();
-          const solver = data.participants?.find((p) => String(p.user_id) === String(data.userId));
-          const solverName = solver?.player_name || 'Another player';
-          setFeedback({
-            message: `${solverName} solved the word: ${data.word || ''}! Next round starting soon...`,
-            type: 'error',
-          });
+        } catch {
+          // Handled gracefully
         }
       };
 
-      const handleRoundTimeout = (data: { word?: string }) => {
-        stopTimer();
-        setFeedback({
-          message: `Round ended! The word was: ${data.word || ''}`,
-          type: 'error',
-        });
-        toast.error(`Round ended! The word was: ${data.word || ''}`, {
-          position: 'bottom-right',
-          duration: 3000,
-        });
-      };
-
-      const handleWaitingForOthers = () => {
-        setWaitingForOthers(true);
-      };
-
-      const handleGameEnded = (data: { winner: Player; participants: Player[] }) => {
-        stopTimer();
-        setWinner(data.winner);
-        setPlayers(data.participants);
-        setGameEnded(true);
-        setWaitingForOthers(false);
-      };
-
-      const handleParticipantsUpdated = (updatedPlayers: Player[]) => {
-        setPlayers(
-          updatedPlayers.map((player) => ({
-            ...player,
-            score: Number(player.score) || 0,
-            current_streak: Number(player.current_streak) || 0,
-          }))
-        );
-      };
-
-      socket.on('newWord', handleNewWord);
-      socket.on('answer-submitted', handleAnswerSubmitted);
-      socket.on('round-timeout', handleRoundTimeout);
-      socket.on('waiting-for-others', handleWaitingForOthers);
-      socket.on('game-ended', handleGameEnded);
-      socket.on('participantsUpdated', handleParticipantsUpdated);
-
-      if (socket.connected) {
-        socket.emit('join-room', {
-          roomId,
-          userId: effectiveUserId,
-          playerName: effectivePlayerName,
-          token
-        });
-      } else {
-        socket.once('connect', () => {
-          socket.emit('join-room', {
-            roomId,
-            userId: effectiveUserId,
-            playerName: effectivePlayerName,
-            token
-          });
-        });
-      }
-
-      loadPlayers();
-
-      return () => {
-        socket.off('newWord', handleNewWord);
-        socket.off('answer-submitted', handleAnswerSubmitted);
-        socket.off('round-timeout', handleRoundTimeout);
-        socket.off('waiting-for-others', handleWaitingForOthers);
-        socket.off('game-ended', handleGameEnded);
-        socket.off('participantsUpdated', handleParticipantsUpdated);
-        audioContextRef.current?.close();
-      };
+      handlePlayerFinished();
     }
+  }, [roundCount, maxRounds, roomId, currentUserId]);
 
-    return () => {
-      audioContextRef.current?.close();
-    };
-  }, [roomId, socket, effectiveUserId, effectivePlayerName, token, loadPlayers, playSound, stopTimer]);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (initialWord && roundCount === 0) {
-      setCurrentWord(initialWord.word);
-      setScrambledWord(initialWord.scrambled);
-      setCurrentHint(initialWord.hint);
-      setIsActive(true);
-      setShowCountdown(false);
-      inputRef.current?.focus();
-      setRoundCount(1);
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-  }, [initialWord, roundCount]);
+    setIsActive(false);
+  }, []);
 
   const handleTimeout = useCallback(() => {
     stopTimer();
     toast.error(`Time's up! The correct word was: ${currentWord}`, {
       position: 'bottom-right',
-      duration: 3000,
+      duration: 4000,
     });
 
-    if (socketRef.current) {
-      socketRef.current.emit('submit-answer', {
-        roomId,
-        userId: effectiveUserId,
-        word: '',
-        timeRemaining: 0,
-      });
+    const currentPlayer = players.find(p => p.user_id === currentUserId);
+    if (currentPlayer) {
+      updatePlayerScore(0, 0);
     }
-  }, [currentWord, stopTimer, roomId, effectiveUserId]);
+
+    setTimeout(() => {
+      setRoundCount(prev => {
+        const nextRound = prev + 1;
+        if (nextRound <= maxRounds) {
+          loadNewWord(nextRound);
+        }
+        return nextRound;
+      });
+    }, 3000);
+  }, [currentWord, stopTimer, loadNewWord, currentUserId, players, updatePlayerScore, maxRounds]);
+
+  const getBasePoints = useCallback(() => {
+    const diff = String(difficulty || 'easy').toLowerCase();
+    const pointsMap: Record<string, number> = { easy: 5, medium: 8, hard: 10 };
+    return pointsMap[diff] || 5;
+  }, [difficulty]);
+
+  const handleCorrectAnswer = useCallback(async () => {
+    stopTimer();
+    playSound('correct');
+
+    const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
+    if (!currentPlayer) return;
+
+    const basePoints = Number(getBasePoints()) || 5;
+    const current_s = Number(currentPlayer.current_streak);
+    const validCurrentStreak = isNaN(current_s) ? 0 : current_s;
+    const newStreak = validCurrentStreak + 1;
+    const streakBonus = newStreak * 3;
+    const timeVal = Number(timeLeft);
+    const timeBonus = isNaN(timeVal) ? 0 : timeVal;
+
+    let totalPoints = Number(basePoints + streakBonus + timeBonus);
+    if (isNaN(totalPoints)) totalPoints = 10;
+    totalPoints = Math.floor(totalPoints);
+
+    await updatePlayerScore(totalPoints, newStreak);
+    setFeedback({ message: `Correct! +${totalPoints} points`, type: 'success' });
+
+    if (isSendingAnswerEventRef.current) return;
+    isSendingAnswerEventRef.current = true;
+    try {
+      await apiClient.post('/api/game/events', {
+        roomId: roomId,
+        userId: currentUserId,
+        event_type: 'answer',
+        word: currentWord,
+        isCorrect: true,
+        points: totalPoints
+      });
+      isSendingAnswerEventRef.current = false;
+    } catch {
+      isSendingAnswerEventRef.current = false;
+      return;
+    }
+
+    setTimeout(() => {
+      setRoundCount(prev => {
+        const nextRound = prev + 1;
+        if (nextRound <= maxRounds) {
+          loadNewWord(nextRound);
+        }
+        return nextRound;
+      });
+    }, 2500);
+  }, [stopTimer, getBasePoints, timeLeft, loadNewWord, playSound, currentUserId, players, updatePlayerScore, roomId, currentWord, maxRounds]);
+
+  const handleWrongAnswer = useCallback(async () => {
+    playSound('wrong');
+
+    const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
+    if (currentPlayer) {
+      await updatePlayerScore(0, 0);
+    }
+
+    setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
+    setAnswer('');
+
+    if (isSendingAnswerEventRef.current) return;
+    isSendingAnswerEventRef.current = true;
+    try {
+      await apiClient.post('/api/game/events', {
+        roomId: roomId,
+        userId: currentUserId,
+        word: currentWord,
+        isCorrect: false,
+        points: 0
+      });
+      isSendingAnswerEventRef.current = false;
+    } catch {
+      isSendingAnswerEventRef.current = false;
+      return;
+    }
+
+    setTimeout(() => {
+      setFeedback({ message: '', type: '' });
+      inputRef.current?.focus();
+    }, 2500);
+  }, [playSound, currentUserId, players, updatePlayerScore, roomId, currentWord]);
 
   const checkAnswer = useCallback(() => {
-    if (!isActive || isSubmitting) return;
+    if (!isActive) return;
 
     const userAnswer = answer.trim().toUpperCase();
     if (!userAnswer) {
@@ -328,19 +453,12 @@ export default function MultiplayerGame({
       return;
     }
 
-    if (socketRef.current) {
-      setIsSubmitting(true);
-      socketRef.current.emit('submit-answer', {
-        roomId,
-        userId: effectiveUserId,
-        word: userAnswer,
-        timeRemaining: timeLeft,
-      });
-      setTimeout(() => setIsSubmitting(false), 2500);
+    if (userAnswer === currentWord) {
+      handleCorrectAnswer();
     } else {
-      toast.error('Connection lost. Please wait...');
+      handleWrongAnswer();
     }
-  }, [isActive, isSubmitting, answer, roomId, effectiveUserId, timeLeft]);
+  }, [isActive, answer, currentWord, handleCorrectAnswer, handleWrongAnswer]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -352,7 +470,14 @@ export default function MultiplayerGame({
   const toggleHint = async () => {
     if (!hintUsed && !showHint) {
       setHintUsed(true);
-      toast.info('Hint revealed!', {
+      const penalty = Math.floor(getBasePoints() * 0.3);
+
+      const currentPlayer = players.find(p => String(p.user_id).toLowerCase() === String(currentUserId).toLowerCase());
+      if (currentPlayer) {
+        updatePlayerScore(-penalty, currentPlayer.current_streak).catch(() => {});
+      }
+
+      toast.warning(`Hint used! -${penalty} points`, {
         position: 'bottom-right',
         duration: 2000,
       });
@@ -471,7 +596,7 @@ export default function MultiplayerGame({
 
         <div className="text-center space-y-2 pt-4 sm:pt-0">
           <h1 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">Multiplayer Game</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Round {Math.min(roundCount, maxRounds)} of {maxRounds} • <span className="capitalize">{difficulty}</span></p>
+          <p className="text-sm sm:text-base text-muted-foreground">Round {Math.min(roundCount, maxRounds)} of {maxRounds}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mb-4">
@@ -557,10 +682,10 @@ export default function MultiplayerGame({
                 />
                 <Button
                   onClick={checkAnswer}
-                  disabled={!isActive || isSubmitting}
-                  className="px-6 rounded-xl font-semibold min-w-[90px]"
+                  disabled={!isActive}
+                  className="px-6 rounded-xl font-semibold"
                 >
-                  {isSubmitting ? 'Checking...' : 'Submit'}
+                  Submit
                 </Button>
               </div>
             </div>

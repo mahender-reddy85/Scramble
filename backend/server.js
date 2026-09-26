@@ -11,28 +11,21 @@ import { getRoomState, setRoomState, deleteRoomState } from './utils/roomState.j
 dotenv.config();
 
 const server = http.createServer();
-const clientUrl = process.env.CLIENT_URL;
+const clientUrl = process.env.CLIENT_URL || 'https://scramble-eta.vercel.app';
 const allowedOrigins = [
+  clientUrl,
+  'http://localhost:8080',
   'http://localhost:5173',
-  'https://scramble-eta.vercel.app',
-  ...(clientUrl ? [clientUrl] : [])
+  'http://localhost:3000'
 ];
-
-function isOriginAllowed(origin) {
-  if (!origin) return true;
-  if (allowedOrigins.includes(origin)) return true;
-  if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
-  if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
-  return false;
-}
 
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (isOriginAllowed(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin)) {
         return callback(null, true);
       }
-      return callback(null, false);
+      return callback(null, true);
     },
     methods: ['GET', 'POST'],
     credentials: true
@@ -67,77 +60,11 @@ async function endGame(roomId, socketIo) {
     }
 
     socketIo.to(roomId).emit('game-ended', { winner, participants: participants.rows });
-    socketIo.to(roomId).emit('gameEnded', { winner, participants: participants.rows });
     deleteRoomState(roomId);
   } catch (err) {
     console.error('End game logic failure:', err);
   }
 }
-
-export async function sendNewWord(roomId, socketIo) {
-  try {
-    const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
-    if (roomData.rows.length === 0) return;
-
-    const difficulty = roomData.rows[0].difficulty || 'easy';
-    const currentRound = roomData.rows[0].current_round || 0;
-    const nextRound = currentRound + 1;
-
-    if (nextRound > GAME_CONFIG.rounds) {
-      await endGame(roomId, socketIo);
-      return;
-    }
-
-    const words = wordBanks[difficulty] || wordBanks.easy;
-    const randomIndex = Math.floor(Math.random() * words.length);
-    const wordItem = words[randomIndex];
-    const scrambled = scrambleWord(wordItem.word);
-
-    await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
-
-    const state = setRoomState(roomId, {
-      currentWord: wordItem.word,
-      currentHint: wordItem.hint,
-      currentRound: nextRound,
-      locked: false
-    });
-
-    socketIo.to(roomId).emit('newWord', {
-      word: wordItem.word,
-      hint: wordItem.hint,
-      scrambled: scrambled,
-      round: nextRound,
-      totalRounds: GAME_CONFIG.rounds
-    });
-
-    if (state.roundTimer) {
-      clearTimeout(state.roundTimer);
-    }
-
-    state.roundTimer = setTimeout(async () => {
-      try {
-        const currentState = getRoomState(roomId);
-        if (currentState.currentRound === nextRound && !currentState.locked) {
-          currentState.locked = true;
-          socketIo.to(roomId).emit('round-timeout', {
-            word: currentState.currentWord,
-            round: nextRound
-          });
-
-          setTimeout(async () => {
-            await sendNewWord(roomId, socketIo);
-          }, 2500);
-        }
-      } catch (err) {
-        console.error('Round timer error:', err);
-      }
-    }, (GAME_CONFIG.roundTime + 4) * 1000);
-  } catch (error) {
-    console.error('sendNewWord error:', error);
-  }
-}
-
-io.sendNewWord = (roomId) => sendNewWord(roomId, io);
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -145,26 +72,20 @@ io.on('connection', (socket) => {
   socket.on('join-room', async (data) => {
     const { roomId, userId, playerName, token } = data;
 
-    let authenticatedUserId = null;
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        authenticatedUserId = decoded.id;
-      } catch (err) {
-        console.warn('Socket token verify failed:', err.message);
-      }
-    }
-
-    const effectiveUserId = authenticatedUserId || userId;
-    if (!effectiveUserId) {
-      socket.emit('error', { message: 'Authentication required' });
+    if (!token) {
+      socket.emit('error', { message: 'No token provided' });
       return;
     }
 
     try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.id !== userId) {
+        socket.emit('error', { message: 'Invalid token' });
+        return;
+      }
+
       socket.join(roomId);
-      socket.userId = effectiveUserId;
-      socket.roomId = roomId;
+      socket.userId = decoded.id;
 
       const roomData = await pool.query(`
         SELECT gr.*, COUNT(gp.id) as player_count
@@ -196,7 +117,7 @@ io.on('connection', (socket) => {
       socket.emit('participantsUpdated', participants.rows);
 
       socket.to(roomId).emit('participant-joined', {
-        userId: effectiveUserId,
+        userId,
         playerName,
         participants: participants.rows
       });
@@ -216,52 +137,22 @@ io.on('connection', (socket) => {
 
   socket.on('submit-answer', async (data) => {
     const { roomId, word, timeRemaining } = data;
-    const userId = socket.userId || data?.userId;
-
-    if (!userId) {
-      socket.emit('error', { message: 'Unauthenticated socket' });
-      return;
-    }
-
+    const userId = socket.userId;
     const roomState = getRoomState(roomId);
-    if (roomState.locked) {
-      return;
-    }
-
     const currentWord = roomState.currentWord;
-    const isCorrect = Boolean(currentWord && word && (String(word).trim().toUpperCase() === String(currentWord).trim().toUpperCase()));
-    const isUuid = typeof userId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+    const isCorrect = currentWord && word && (word.toUpperCase() === currentWord.toUpperCase());
 
     try {
-      let difficulty = 'easy';
-      try {
-        const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
-        if (roomData.rows.length > 0) {
-          difficulty = roomData.rows[0].difficulty || 'easy';
-        }
-      } catch (dbErr) {
-        console.warn('Room data fetch warning:', dbErr.message);
-      }
+      const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
+      if (roomData.rows.length === 0) return;
 
+      const difficulty = roomData.rows[0].difficulty || 'easy';
+      const currentRound = roomData.rows[0].current_round || 0;
       let pointsToAward = 0;
 
       if (isCorrect) {
-        roomState.locked = true;
-        if (roomState.roundTimer) {
-          clearTimeout(roomState.roundTimer);
-          roomState.roundTimer = null;
-        }
-
-        let current_streak = 0;
-        if (isUuid) {
-          try {
-            const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
-            current_streak = participantQuery.rows[0]?.current_streak || 0;
-          } catch (e) {
-            console.warn('Could not query streak:', e.message);
-          }
-        }
-
+        const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
+        const current_streak = participantQuery.rows[0]?.current_streak || 0;
         const basePoints = GAME_CONFIG.basePoints[difficulty] || 5;
         const newStreak = current_streak + 1;
         const streakBonus = newStreak * GAME_CONFIG.streakBonusMultiplier;
@@ -269,63 +160,79 @@ io.on('connection', (socket) => {
         pointsToAward = Math.floor(basePoints + streakBonus + timeBonus);
       }
 
-      if (isUuid) {
-        try {
-          await pool.query(
-            'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
-            [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
-          );
+      await pool.query(
+        'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
+        [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
+      );
 
-          if (isCorrect) {
-            await pool.query(
-              'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
-              [pointsToAward, roomId, userId]
-            );
-          } else {
-            await pool.query(
-              'UPDATE game_participants SET current_streak = 0 WHERE room_id = $1 AND user_id = $2',
-              [roomId, userId]
-            );
-          }
-        } catch (dbErr) {
-          console.warn('DB score/event update warning:', dbErr.message);
-        }
+      if (isCorrect) {
+        await pool.query(
+          'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
+          [pointsToAward, roomId, userId]
+        );
+      } else {
+        await pool.query(
+          'UPDATE game_participants SET current_streak = 0 WHERE room_id = $1 AND user_id = $2',
+          [roomId, userId]
+        );
       }
 
-      let participantRows = [];
-      try {
-        const participants = await pool.query(`
-          SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
-          FROM game_participants gp
-          LEFT JOIN users p ON gp.user_id = p.id
-          WHERE gp.room_id = $1
-          ORDER BY gp.score DESC
-        `, [roomId]);
-        participantRows = participants.rows;
-      } catch (e) {
-        console.warn('Could not fetch participants:', e.message);
-      }
+      const participants = await pool.query(`
+        SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
+        FROM game_participants gp
+        LEFT JOIN users p ON gp.user_id = p.id
+        WHERE gp.room_id = $1
+        ORDER BY gp.score DESC
+      `, [roomId]);
 
       io.to(roomId).emit('answer-submitted', {
         userId,
-        word: currentWord,
+        word,
         isCorrect,
         points: pointsToAward,
-        participants: participantRows
+        participants: participants.rows
       });
 
       if (isCorrect) {
+        if (roomState.locked) return;
+        roomState.locked = true;
+
         setTimeout(async () => {
-          await sendNewWord(roomId, io);
+          try {
+            if (currentRound < GAME_CONFIG.rounds) {
+              const words = wordBanks[difficulty];
+              const randomIndex = Math.floor(Math.random() * words.length);
+              const wordItem = words[randomIndex];
+              const scrambled = scrambleWord(wordItem.word);
+
+              await pool.query('UPDATE game_rooms SET current_round = current_round + 1 WHERE id = $1', [roomId]);
+
+              setRoomState(roomId, {
+                currentWord: wordItem.word,
+                currentHint: wordItem.hint,
+                currentRound: currentRound + 1,
+                locked: false
+              });
+
+              io.to(roomId).emit('newWord', {
+                word: wordItem.word,
+                hint: wordItem.hint,
+                scrambled: scrambled,
+                round: currentRound + 1
+              });
+            } else {
+              const winner = participants.rows[0];
+              io.to(roomId).emit('gameEnded', { winner });
+              roomState.locked = false;
+            }
+          } catch (error) {
+            console.error('Error sending next word:', error);
+            roomState.locked = false;
+          }
         }, 2500);
       }
     } catch (error) {
       console.error('Submit answer error:', error);
-      if (isCorrect) {
-        setTimeout(async () => {
-          await sendNewWord(roomId, io);
-        }, 2500);
-      }
       socket.emit('error', { message: 'Failed to submit answer' });
     }
   });

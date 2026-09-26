@@ -216,28 +216,24 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
     }, 2100);
 
     setTimeout(() => {
-      if (typeof io.sendNewWord === 'function') {
-        io.sendNewWord(roomId);
-      } else {
-        const words = wordBanks[difficulty] || wordBanks.easy;
-        const randomIndex = Math.floor(Math.random() * words.length);
-        const wordItem = words[randomIndex];
-        const scrambled = scrambleWord(wordItem.word);
+      const words = wordBanks[difficulty] || wordBanks.easy;
+      const randomIndex = Math.floor(Math.random() * words.length);
+      const wordItem = words[randomIndex];
+      const scrambled = scrambleWord(wordItem.word);
 
-        setRoomState(roomId, {
-          currentWord: wordItem.word,
-          currentHint: wordItem.hint,
-          currentRound: 1,
-          locked: false
-        });
+      setRoomState(roomId, {
+        currentWord: wordItem.word,
+        currentHint: wordItem.hint,
+        currentRound: 1,
+        locked: false
+      });
 
-        io.to(roomId).emit('newWord', {
-          word: wordItem.word,
-          hint: wordItem.hint,
-          scrambled: scrambled,
-          round: 1
-        });
-      }
+      io.to(roomId).emit('newWord', {
+        word: wordItem.word,
+        hint: wordItem.hint,
+        scrambled: scrambled,
+        round: 1
+      });
     }, 3100);
   } catch (error) {
     console.error('Start game error:', error);
