@@ -200,6 +200,13 @@ All REST routes are prefixed with `/api`. Protected routes require a `Bearer <to
 |--------|------|------|-------------|
 | `GET` | `/api/health` | — | Server health check |
 
+### Puzzles & Words — `/api/game`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/game/puzzle/:difficulty` | — | Get a single scrambled puzzle (`{ scrambled, hint, length }`) |
+| `GET` | `/api/game/words/:difficulty` | — | Get the word bank list for single-player mode |
+
 ### Authentication — `/api/auth`
 
 | Method | Path | Auth | Body | Description |

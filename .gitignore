@@ -1,18 +1,37 @@
+# Dependencies
 node_modules/
+backend/node_modules/
+.pnp
+.pnp.js
+
+# Production & Build outputs
 dist/
 dist-ssr/
-coverage/
-.vite/
-.DS_Store
+build/
+*.tsbuildinfo
+.eslintcache
 
-*.local
+# Testing & Coverage
+coverage/
+.nyc_output/
+
+# Cache & Temp
+.vite/
+.cache/
+.temp/
+*.tmp
+
+# Environment & Secrets (NEVER commit actual environment files)
 .env
 .env.*
 *.env
 backend/.env
+backend/.env.*
+*.local
 !.env.example
 !backend/.env.example
 
+# Logs
 logs/
 *.log
 npm-debug.log*
@@ -21,6 +40,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# OS Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE & Editors
 .vscode/*
 !.vscode/extensions.json
 .idea/
