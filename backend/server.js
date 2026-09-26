@@ -230,12 +230,19 @@ io.on('connection', (socket) => {
 
     const currentWord = roomState.currentWord;
     const isCorrect = Boolean(currentWord && word && (String(word).trim().toUpperCase() === String(currentWord).trim().toUpperCase()));
+    const isUuid = typeof userId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
 
     try {
-      const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
-      if (roomData.rows.length === 0) return;
+      let difficulty = 'easy';
+      try {
+        const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
+        if (roomData.rows.length > 0) {
+          difficulty = roomData.rows[0].difficulty || 'easy';
+        }
+      } catch (dbErr) {
+        console.warn('Room data fetch warning:', dbErr.message);
+      }
 
-      const difficulty = roomData.rows[0].difficulty || 'easy';
       let pointsToAward = 0;
 
       if (isCorrect) {
@@ -245,8 +252,16 @@ io.on('connection', (socket) => {
           roomState.roundTimer = null;
         }
 
-        const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
-        const current_streak = participantQuery.rows[0]?.current_streak || 0;
+        let current_streak = 0;
+        if (isUuid) {
+          try {
+            const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
+            current_streak = participantQuery.rows[0]?.current_streak || 0;
+          } catch (e) {
+            console.warn('Could not query streak:', e.message);
+          }
+        }
+
         const basePoints = GAME_CONFIG.basePoints[difficulty] || 5;
         const newStreak = current_streak + 1;
         const streakBonus = newStreak * GAME_CONFIG.streakBonusMultiplier;
@@ -254,37 +269,49 @@ io.on('connection', (socket) => {
         pointsToAward = Math.floor(basePoints + streakBonus + timeBonus);
       }
 
-      await pool.query(
-        'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
-        [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
-      );
+      if (isUuid) {
+        try {
+          await pool.query(
+            'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
+            [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
+          );
 
-      if (isCorrect) {
-        await pool.query(
-          'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
-          [pointsToAward, roomId, userId]
-        );
-      } else {
-        await pool.query(
-          'UPDATE game_participants SET current_streak = 0 WHERE room_id = $1 AND user_id = $2',
-          [roomId, userId]
-        );
+          if (isCorrect) {
+            await pool.query(
+              'UPDATE game_participants SET score = score + $1, current_streak = current_streak + 1 WHERE room_id = $2 AND user_id = $3',
+              [pointsToAward, roomId, userId]
+            );
+          } else {
+            await pool.query(
+              'UPDATE game_participants SET current_streak = 0 WHERE room_id = $1 AND user_id = $2',
+              [roomId, userId]
+            );
+          }
+        } catch (dbErr) {
+          console.warn('DB score/event update warning:', dbErr.message);
+        }
       }
 
-      const participants = await pool.query(`
-        SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
-        FROM game_participants gp
-        LEFT JOIN users p ON gp.user_id = p.id
-        WHERE gp.room_id = $1
-        ORDER BY gp.score DESC
-      `, [roomId]);
+      let participantRows = [];
+      try {
+        const participants = await pool.query(`
+          SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
+          FROM game_participants gp
+          LEFT JOIN users p ON gp.user_id = p.id
+          WHERE gp.room_id = $1
+          ORDER BY gp.score DESC
+        `, [roomId]);
+        participantRows = participants.rows;
+      } catch (e) {
+        console.warn('Could not fetch participants:', e.message);
+      }
 
       io.to(roomId).emit('answer-submitted', {
         userId,
         word: currentWord,
         isCorrect,
         points: pointsToAward,
-        participants: participants.rows
+        participants: participantRows
       });
 
       if (isCorrect) {
@@ -294,6 +321,11 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       console.error('Submit answer error:', error);
+      if (isCorrect) {
+        setTimeout(async () => {
+          await sendNewWord(roomId, io);
+        }, 2500);
+      }
       socket.emit('error', { message: 'Failed to submit answer' });
     }
   });

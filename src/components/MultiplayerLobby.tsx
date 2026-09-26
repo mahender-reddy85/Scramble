@@ -94,12 +94,15 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       setCountdown(data.countdown);
     });
 
-    socketRef.current.on('newWord', (data: { word: string; hint: string; scrambled: string }) => {
+    const handleFirstWord = (data: { word: string; hint: string; scrambled: string }) => {
       setInitialWord(data);
       setGameStarted(true);
       setGameStarting(false);
       setCountdown(null);
-    });
+      socketRef.current?.off('newWord', handleFirstWord);
+    };
+
+    socketRef.current.on('newWord', handleFirstWord);
 
     socketRef.current.on('participant-joined', (data: { participants: Player[] }) => {
       setPlayers(data.participants);

@@ -54,6 +54,7 @@ export default function WordScramble() {
   const [timeLeft, setTimeLeft] = useState(15);
   const [isActive, setIsActive] = useState(false);
   const [answer, setAnswer] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
   const [showStart, setShowStart] = useState(true);
   const [showGameStarted, setShowGameStarted] = useState(false);
@@ -136,16 +137,19 @@ export default function WordScramble() {
   }, []);
 
   const scrambleWord = useCallback((word: string): string => {
-    const scramble = (str: string): string => {
-      const letters = str.split('');
+    if (!word || word.length <= 1) return word;
+    const letters = word.split('');
+    let attempts = 0;
+    while (attempts < 20) {
       for (let i = letters.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [letters[i], letters[j]] = [letters[j], letters[i]];
       }
       const scrambled = letters.join('');
-      return scrambled === str ? scramble(str) : scrambled;
-    };
-    return scramble(word);
+      if (scrambled !== word) return scrambled;
+      attempts++;
+    }
+    return letters.reverse().join('');
   }, []);
 
   const loadNewWord = useCallback(() => {
@@ -239,7 +243,7 @@ export default function WordScramble() {
   }, [playSound]);
 
   const checkAnswer = useCallback(() => {
-    if (!isActive) return;
+    if (!isActive || isSubmitting) return;
 
     const userAnswer = answer.trim().toUpperCase();
     if (!userAnswer) {
@@ -248,12 +252,14 @@ export default function WordScramble() {
       return;
     }
 
+    setIsSubmitting(true);
     if (userAnswer === currentWord.trim().toUpperCase()) {
       handleCorrectAnswer();
     } else {
       handleWrongAnswer();
     }
-  }, [isActive, answer, currentWord, handleCorrectAnswer, handleWrongAnswer]);
+    setTimeout(() => setIsSubmitting(false), 300);
+  }, [isActive, isSubmitting, answer, currentWord, handleCorrectAnswer, handleWrongAnswer]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -311,7 +317,7 @@ export default function WordScramble() {
       return;
     }
     setShowGameStarted(false);
-    setTimeout(() => loadNewWord(), 100);
+    loadNewWord();
   };
 
   const toggleHint = () => {
@@ -527,10 +533,10 @@ export default function WordScramble() {
                 />
                 <Button
                   onClick={checkAnswer}
-                  disabled={!isActive}
-                  className="px-6 rounded-xl font-semibold"
+                  disabled={!isActive || isSubmitting}
+                  className="px-6 rounded-xl font-semibold min-w-[90px]"
                 >
-                  Submit
+                  {isSubmitting ? 'Checking...' : 'Submit'}
                 </Button>
               </div>
               <Button

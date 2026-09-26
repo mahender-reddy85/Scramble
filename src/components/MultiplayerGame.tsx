@@ -181,6 +181,7 @@ export default function MultiplayerGame({
           );
         }
 
+        setIsSubmitting(false);
         const isMe = String(data.userId) === String(effectiveUserId);
 
         if (isMe) {
@@ -286,16 +287,19 @@ export default function MultiplayerGame({
     };
   }, [roomId, socket, effectiveUserId, effectivePlayerName, token, loadPlayers, playSound, stopTimer]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
-    if (initialWord) {
+    if (initialWord && roundCount === 0) {
       setCurrentWord(initialWord.word);
       setScrambledWord(initialWord.scrambled);
       setCurrentHint(initialWord.hint);
       setIsActive(true);
+      setShowCountdown(false);
       inputRef.current?.focus();
-      setRoundCount((prev) => (prev === 0 ? 1 : prev));
+      setRoundCount(1);
     }
-  }, [initialWord]);
+  }, [initialWord, roundCount]);
 
   const handleTimeout = useCallback(() => {
     stopTimer();
@@ -304,7 +308,7 @@ export default function MultiplayerGame({
       duration: 3000,
     });
 
-    if (socketRef.current && socketRef.current.connected) {
+    if (socketRef.current) {
       socketRef.current.emit('submit-answer', {
         roomId,
         userId: effectiveUserId,
@@ -315,7 +319,7 @@ export default function MultiplayerGame({
   }, [currentWord, stopTimer, roomId, effectiveUserId]);
 
   const checkAnswer = useCallback(() => {
-    if (!isActive) return;
+    if (!isActive || isSubmitting) return;
 
     const userAnswer = answer.trim().toUpperCase();
     if (!userAnswer) {
@@ -324,17 +328,19 @@ export default function MultiplayerGame({
       return;
     }
 
-    if (socketRef.current && socketRef.current.connected) {
+    if (socketRef.current) {
+      setIsSubmitting(true);
       socketRef.current.emit('submit-answer', {
         roomId,
         userId: effectiveUserId,
         word: userAnswer,
         timeRemaining: timeLeft,
       });
+      setTimeout(() => setIsSubmitting(false), 2500);
     } else {
       toast.error('Connection lost. Please wait...');
     }
-  }, [isActive, answer, roomId, effectiveUserId, timeLeft]);
+  }, [isActive, isSubmitting, answer, roomId, effectiveUserId, timeLeft]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -551,10 +557,10 @@ export default function MultiplayerGame({
                 />
                 <Button
                   onClick={checkAnswer}
-                  disabled={!isActive}
-                  className="px-6 rounded-xl font-semibold"
+                  disabled={!isActive || isSubmitting}
+                  className="px-6 rounded-xl font-semibold min-w-[90px]"
                 >
-                  Submit
+                  {isSubmitting ? 'Checking...' : 'Submit'}
                 </Button>
               </div>
             </div>
