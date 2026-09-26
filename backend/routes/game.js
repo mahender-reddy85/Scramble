@@ -3,6 +3,8 @@ import pool from '../db.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import crypto from 'crypto';
 import { wordBanks, scrambleWord } from '../utils/wordBanks.js';
+import { GAME_CONFIG } from '../utils/gameConfig.js';
+import { setRoomState } from '../utils/roomState.js';
 
 const router = express.Router();
 
@@ -52,7 +54,7 @@ router.post('/rooms', authenticateToken, async (req, res) => {
     const roomId = crypto.randomUUID();
     await pool.query(
       'INSERT INTO game_rooms (id, room_code, created_by, difficulty) VALUES ($1, $2, $3, $4)',
-      [roomId, roomCode, userId, difficulty]
+      [roomId, roomCode, userId, difficulty || 'easy']
     );
 
     res.status(201).json({ roomId, roomCode });
@@ -205,7 +207,13 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
       const wordItem = words[randomIndex];
       const scrambled = scrambleWord(wordItem.word);
 
-      global.roomCurrentWords.set(roomId, wordItem.word);
+      setRoomState(roomId, {
+        currentWord: wordItem.word,
+        currentHint: wordItem.hint,
+        currentRound: 1,
+        locked: false
+      });
+
       io.to(roomId).emit('newWord', {
         word: wordItem.word,
         hint: wordItem.hint,

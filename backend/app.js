@@ -22,9 +22,20 @@ export function createApp(io = null) {
     });
   }
 
+  const clientUrl = process.env.CLIENT_URL || 'https://scramble-eta.vercel.app';
+  const allowedOrigins = [
+    clientUrl,
+    'http://localhost:8080',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ];
+
   const corsOptions = {
     origin: (origin, callback) => {
-      callback(null, true);
+      if (!origin || allowedOrigins.includes(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

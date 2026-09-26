@@ -30,28 +30,47 @@
 Scramble/
 ├── src/                        # Frontend (React + TypeScript + Vite)
 │   ├── components/
-│   │   ├── WordScramble.tsx    # Single-player game component
-│   │   ├── MultiplayerLobby.tsx# Room creation, joining, ready-up
 │   │   ├── MultiplayerGame.tsx # Live multiplayer game view
-│   │   ├── UserMenu.tsx        # Auth-aware user menu
-│   │   └── ThemeProvider.tsx   # Dark/light theme wrapper
+│   │   ├── MultiplayerLobby.tsx# Room creation, joining, ready-up
+│   │   ├── ThemeProvider.tsx   # Dark/light theme wrapper
+│   │   ├── UserMenu.tsx        # Auth-aware user menu & preferences
+│   │   ├── WordScramble.tsx    # Single-player game component
+│   │   └── ui/                 # Accessible UI components (Radix UI + Tailwind)
+│   │       ├── avatar.tsx
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       ├── dropdown-menu.tsx
+│   │       ├── input.tsx
+│   │       ├── sonner.tsx
+│   │       └── tooltip.tsx
+│   ├── integrations/           # API client (JWT auth & room endpoints)
+│   ├── lib/                    # Shared utilities (cn helper)
 │   ├── pages/
 │   │   ├── Auth.tsx            # Login / Register page
 │   │   └── Index.tsx           # Main app entry page
-│   ├── hooks/                  # Custom React hooks
-│   ├── integrations/           # API / Socket.io client setup
-│   └── lib/                    # Shared utilities
+│   ├── types.ts                # TypeScript type definitions
+│   ├── App.tsx                 # Root application router & layout
+│   └── main.tsx                # Frontend entrypoint
 │
 └── backend/                    # Backend (Node.js + Express + Socket.io)
-    ├── server.js               # Express app, Socket.io handlers, word banks
+    ├── app.js                  # Express app setup, CORS, and REST routes
+    ├── server.js               # HTTP server & Socket.io multiplayer orchestration
     ├── db.js                   # PostgreSQL connection pool (pg)
+    ├── middleware/             # JWT auth middleware
     ├── routes/
     │   ├── auth.js             # /api/auth — register, login, profile
     │   └── game.js             # /api/game — rooms, participants, events, leaderboard
-    ├── middleware/             # JWT auth middleware
-    └── scripts/
-        ├── init-db.js          # One-time database schema initializer
-        └── migrate-profiles-to-users.js # Migration script for profiles → users
+    ├── utils/
+    │   ├── gameConfig.js       # Game constants (rounds, timers, scoring)
+    │   ├── roomState.js        # Centralized in-memory multiplayer room state
+    │   └── wordBanks.js        # Word definitions & scramble utilities
+    ├── scripts/
+    │   └── init-db.js          # Canonical database schema initializer
+    ├── tests/
+    │   ├── auth.test.js        # Auth route unit & integration tests
+    │   └── game.test.js        # Game route & wordbank tests
+    └── __mocks__/
+        └── db.js               # In-memory database mock for Jest tests
 ```
 
 ### Data Flow
@@ -85,8 +104,8 @@ All Players in Room (real-time sync)
 ### 1. Clone the Repository
 
 ```sh
-git clone https://github.com/your-username/scramble.git
-cd scramble
+git clone https://github.com/mahender-reddy85/Scramble.git
+cd Scramble
 ```
 
 ### 2. Install Dependencies
@@ -101,15 +120,18 @@ cd backend && npm install && cd ..
 
 ### 3. Configure Environment Variables
 
-**Backend** — create `backend/.env`:
+Create environment configuration files using the provided templates:
+
+**Backend** — copy `backend/.env.example` to `backend/.env`:
 
 ```env
 DATABASE_URL=postgresql://username:password@localhost:5432/scramble_db
 JWT_SECRET=your-super-secret-jwt-key-change-this
 PORT=3001
+CLIENT_URL=http://localhost:5173
 ```
 
-**Frontend** — create `.env` in the project root:
+**Frontend** — copy `.env.example` to `.env` in the project root:
 
 ```env
 VITE_API_URL=http://localhost:3001
@@ -124,12 +146,7 @@ cd backend
 node scripts/init-db.js
 ```
 
-This creates all tables (`users`, `game_rooms`, `game_participants`, `game_events`).
-
-> **Migration Note:** If you have an existing database with a `profiles` table, run the migration script first:
-> ```sh
-> npm run migrate
-> ```
+This initializes all database tables (`users`, `game_rooms`, `game_participants`, `game_events`).
 
 ### 5. Start Backend
 
@@ -163,6 +180,7 @@ Frontend will be available at **http://localhost:5173**
 | `DATABASE_URL` | ✅ | — | Full PostgreSQL connection string |
 | `JWT_SECRET` | ✅ | — | Secret key used to sign JWT tokens (use a long random string) |
 | `PORT` | ❌ | `3001` | Port the Express server listens on |
+| `CLIENT_URL` | ❌ | `http://localhost:5173` | Allowed frontend origin for CORS |
 
 ### Frontend (`.env` in project root)
 
@@ -242,54 +260,57 @@ The server uses Socket.io for real-time multiplayer synchronization.
 
 ## 🗄️ Database Schema
 
+The canonical PostgreSQL schema defined in `backend/scripts/init-db.js`:
+
 ```sql
--- User accounts and profiles
+-- User accounts
 users (
-  id            UUID PRIMARY KEY,
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   username      VARCHAR(50) UNIQUE NOT NULL,
   email         VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   avatar_url    VARCHAR(500),
-  created_at    TIMESTAMP,
-  updated_at    TIMESTAMP
-)
+  created_at    TIMESTAMP DEFAULT NOW(),
+  updated_at    TIMESTAMP DEFAULT NOW()
+);
 
 -- Multiplayer game sessions
 game_rooms (
   id          VARCHAR(100) PRIMARY KEY,
   room_code   VARCHAR(10) UNIQUE NOT NULL,   -- 4-digit shareable code
-  created_by  UUID → users(id),
-  difficulty  VARCHAR(20),                   -- 'easy' | 'medium' | 'hard'
-  status      VARCHAR(20),                   -- 'waiting' | 'active' | 'finished'
-  current_round INTEGER,
+  created_by  UUID REFERENCES users(id) ON DELETE CASCADE,
+  difficulty  VARCHAR(20) NOT NULL DEFAULT 'easy',
+  status      VARCHAR(20) NOT NULL DEFAULT 'waiting',
   started_at  TIMESTAMP,
   finished_at TIMESTAMP,
-  created_at  TIMESTAMP
-)
+  created_at  TIMESTAMP DEFAULT NOW(),
+  updated_at  TIMESTAMP DEFAULT NOW()
+);
 
 -- Players in a game session
 game_participants (
-  id             VARCHAR(100) PRIMARY KEY,
-  room_id        VARCHAR(100) → game_rooms(id),
-  user_id        UUID → users(id),
-  player_name    VARCHAR(50),
-  score          INTEGER DEFAULT 0,
-  current_streak INTEGER DEFAULT 0,
-  is_ready       BOOLEAN DEFAULT FALSE,
-  joined_at      TIMESTAMP
-)
+  id               VARCHAR(100) PRIMARY KEY,
+  room_id          VARCHAR(100) REFERENCES game_rooms(id) ON DELETE CASCADE,
+  user_id          UUID REFERENCES users(id) ON DELETE CASCADE,
+  player_name      VARCHAR(50) NOT NULL,
+  score            INTEGER DEFAULT 0,
+  current_streak   INTEGER DEFAULT 0,
+  rounds_completed INTEGER DEFAULT 0,
+  is_ready         BOOLEAN DEFAULT FALSE,
+  joined_at        TIMESTAMP DEFAULT NOW()
+);
 
 -- Per-round answer events
 game_events (
-  id           SERIAL PRIMARY KEY,
-  room_id      VARCHAR(100) → game_rooms(id),
-  user_id      UUID → users(id),
-  event_type   VARCHAR(50),         -- e.g. 'answer_submitted'
-  current_word VARCHAR(100),
-  is_correct   BOOLEAN,
+  id            SERIAL PRIMARY KEY,
+  room_id       VARCHAR(100) REFERENCES game_rooms(id) ON DELETE CASCADE,
+  user_id       UUID REFERENCES users(id) ON DELETE CASCADE,
+  event_type    VARCHAR(50) NOT NULL,         -- e.g. 'answer_submitted'
+  current_word  VARCHAR(100),
+  is_correct    BOOLEAN,
   points_earned INTEGER,
-  created_at   TIMESTAMP
-)
+  created_at    TIMESTAMP DEFAULT NOW()
+);
 ```
 
 ---
@@ -297,7 +318,7 @@ game_events (
 ## 🎮 How to Play
 
 ### Single Player
-1. Log in or register an account.
+1. Log in or register an account (optional for casual play).
 2. Select a difficulty (Easy / Medium / Hard).
 3. Unscramble the word before the timer runs out.
 4. Use hints (costs points) if you're stuck.
@@ -324,7 +345,7 @@ The API is protected by [express-rate-limit](https://github.com/express-rate-lim
 
 When a limit is exceeded the server returns **HTTP 429 Too Many Requests** with a JSON error message and standard `RateLimit-*` headers.
 
-> **Note:** If you deploy behind a reverse proxy (e.g. Nginx, Cloudflare), set `app.set('trust proxy', 1)` in `server.js` so that `express-rate-limit` reads the real client IP from `X-Forwarded-For` instead of the proxy IP.
+> **Note:** If you deploy behind a reverse proxy (e.g. Nginx, Cloudflare, Render), `trust proxy` is enabled so that `express-rate-limit` reads the real client IP from `X-Forwarded-For`.
 
 ---
 
@@ -334,17 +355,19 @@ When a limit is exceeded the server returns **HTTP 429 Too Many Requests** with 
 |-------|-----------|
 | **Frontend Framework** | React 18, TypeScript 5 |
 | **Build Tool** | Vite 5 |
-| **Styling** | Tailwind CSS, shadcn-ui (Radix UI) |
-| **State / Data** | TanStack Query (React Query) |
-| **Forms** | React Hook Form + Zod validation |
-| **Real-time** | Socket.io Client |
+| **Styling** | Tailwind CSS, Radix UI |
+| **Routing** | React Router DOM 6 |
+| **State Management** | React Hooks & State |
+| **Real-time Client** | Socket.io Client 4 |
 | **Notifications** | Sonner |
+| **Icons** | Lucide React |
 | **Backend Runtime** | Node.js 18+, Express 4 |
 | **Real-time Server** | Socket.io 4 |
 | **Database** | PostgreSQL 13+, via `pg` (node-postgres) |
 | **Auth** | JSON Web Tokens (JWT), bcryptjs |
 | **Validation** | express-validator |
 | **Rate Limiting** | express-rate-limit |
+| **Testing** | Jest 30, Supertest 7 |
 | **Dev Server** | Nodemon |
 
 ---
@@ -355,10 +378,10 @@ When a limit is exceeded the server returns **HTTP 429 Too Many Requests** with 
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server (hot-reload) |
+| `npm run dev` | Start Vite dev server at http://localhost:5173 |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview the production build locally |
-| `npm run lint` | Run ESLint |
+| `npm run lint` | Run ESLint across the codebase |
 
 ### Backend (`backend/`)
 
@@ -366,11 +389,13 @@ When a limit is exceeded the server returns **HTTP 429 Too Many Requests** with 
 |---------|-------------|
 | `npm run dev` | Start with nodemon (auto-reload on save) |
 | `npm start` | Start in production mode |
-| `npm run migrate` | Migrate existing profiles table to users table |
 | `npm run init-db` | Initialize fresh database schema |
+| `npm test` | Run test suite (Jest + Supertest) |
+| `npm run test:coverage` | Run test suite with code coverage |
 
 ---
 
 ## 📄 License
 
 ISC © [LMR](https://github.com/mahender-reddy85)
+

@@ -5,16 +5,29 @@ import jwt from 'jsonwebtoken';
 import pool from './db.js';
 import { createApp } from './app.js';
 import { wordBanks, scrambleWord } from './utils/wordBanks.js';
+import { GAME_CONFIG } from './utils/gameConfig.js';
+import { getRoomState, setRoomState, deleteRoomState } from './utils/roomState.js';
 
 dotenv.config();
 
 const server = http.createServer();
+const clientUrl = process.env.CLIENT_URL || 'https://scramble-eta.vercel.app';
+const allowedOrigins = [
+  clientUrl,
+  'http://localhost:8080',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      callback(null, true);
+      if (!origin || allowedOrigins.includes(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, true);
     },
-    methods: ["GET", "POST"],
+    methods: ['GET', 'POST'],
     credentials: true
   },
   transports: ['websocket', 'polling']
@@ -22,11 +35,6 @@ const io = new Server(server, {
 
 const app = createApp(io);
 server.on('request', app);
-
-const roomLocks = new Map();
-const roomCurrentWords = new Map();
-global.roomCurrentWords = roomCurrentWords;
-const playerFinishedStatus = new Map();
 
 async function endGame(roomId, socketIo) {
   try {
@@ -52,7 +60,7 @@ async function endGame(roomId, socketIo) {
     }
 
     socketIo.to(roomId).emit('game-ended', { winner, participants: participants.rows });
-    playerFinishedStatus.delete(roomId);
+    deleteRoomState(roomId);
   } catch (err) {
     console.error('End game logic failure:', err);
   }
@@ -130,7 +138,8 @@ io.on('connection', (socket) => {
   socket.on('submit-answer', async (data) => {
     const { roomId, word, timeRemaining } = data;
     const userId = socket.userId;
-    const currentWord = global.roomCurrentWords.get(roomId);
+    const roomState = getRoomState(roomId);
+    const currentWord = roomState.currentWord;
     const isCorrect = currentWord && word && (word.toUpperCase() === currentWord.toUpperCase());
 
     try {
@@ -144,9 +153,9 @@ io.on('connection', (socket) => {
       if (isCorrect) {
         const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
         const current_streak = participantQuery.rows[0]?.current_streak || 0;
-        const basePoints = difficulty === 'hard' ? 10 : (difficulty === 'medium' ? 8 : 5);
+        const basePoints = GAME_CONFIG.basePoints[difficulty] || 5;
         const newStreak = current_streak + 1;
-        const streakBonus = newStreak * 3;
+        const streakBonus = newStreak * GAME_CONFIG.streakBonusMultiplier;
         const timeBonus = Number(timeRemaining) || 0;
         pointsToAward = Math.floor(basePoints + streakBonus + timeBonus);
       }
@@ -185,12 +194,12 @@ io.on('connection', (socket) => {
       });
 
       if (isCorrect) {
-        if (roomLocks.get(roomId)) return;
-        roomLocks.set(roomId, true);
+        if (roomState.locked) return;
+        roomState.locked = true;
 
         setTimeout(async () => {
           try {
-            if (currentRound < 10) {
+            if (currentRound < GAME_CONFIG.rounds) {
               const words = wordBanks[difficulty];
               const randomIndex = Math.floor(Math.random() * words.length);
               const wordItem = words[randomIndex];
@@ -198,7 +207,13 @@ io.on('connection', (socket) => {
 
               await pool.query('UPDATE game_rooms SET current_round = current_round + 1 WHERE id = $1', [roomId]);
 
-              global.roomCurrentWords.set(roomId, wordItem.word);
+              setRoomState(roomId, {
+                currentWord: wordItem.word,
+                currentHint: wordItem.hint,
+                currentRound: currentRound + 1,
+                locked: false
+              });
+
               io.to(roomId).emit('newWord', {
                 word: wordItem.word,
                 hint: wordItem.hint,
@@ -208,11 +223,11 @@ io.on('connection', (socket) => {
             } else {
               const winner = participants.rows[0];
               io.to(roomId).emit('gameEnded', { winner });
+              roomState.locked = false;
             }
-            roomLocks.delete(roomId);
           } catch (error) {
             console.error('Error sending next word:', error);
-            roomLocks.delete(roomId);
+            roomState.locked = false;
           }
         }, 2500);
       }
@@ -250,15 +265,13 @@ io.on('connection', (socket) => {
     const { roomId, userId } = data;
 
     try {
-      if (!playerFinishedStatus.has(roomId)) {
-        playerFinishedStatus.set(roomId, new Map());
-      }
-      playerFinishedStatus.get(roomId).set(userId, true);
+      const roomState = getRoomState(roomId);
+      roomState.finishedPlayers.add(String(userId).toLowerCase());
 
       try {
         await pool.query(
-          'UPDATE game_participants SET rounds_completed = 10 WHERE room_id = $1 AND user_id = $2',
-          [roomId, userId]
+          'UPDATE game_participants SET rounds_completed = $1 WHERE room_id = $2 AND user_id = $3',
+          [GAME_CONFIG.rounds, roomId, userId]
         );
       } catch (dbErr) {
         console.error('DB update rounds_completed failed, falling back to memory:', dbErr.message);
@@ -269,12 +282,8 @@ io.on('connection', (socket) => {
         [roomId]
       );
 
-      const finishedInRoom = playerFinishedStatus.get(roomId);
-      const finishedUserIds = Array.from(finishedInRoom.keys()).map(id => String(id).toLowerCase());
       const participantUserIds = roomPlayers.rows.map(p => String(p.user_id).toLowerCase());
-      const allDone = participantUserIds.length > 0 && participantUserIds.every(id => finishedUserIds.includes(id));
-
-      console.log(`Room ${roomId}: Participants [${participantUserIds}], Finished [${finishedUserIds}]. allDone: ${allDone}`);
+      const allDone = participantUserIds.length > 0 && participantUserIds.every(id => roomState.finishedPlayers.has(id));
 
       if (allDone) {
         await endGame(roomId, io);
@@ -282,12 +291,11 @@ io.on('connection', (socket) => {
         socket.emit('waiting-for-others');
         socket.to(roomId).emit('player-waiting', { userId });
 
-        if (!finishedInRoom.get('end_timeout_set')) {
-          finishedInRoom.set('end_timeout_set', true);
+        if (!roomState.endTimeoutSet) {
+          roomState.endTimeoutSet = true;
           setTimeout(async () => {
-            const status = playerFinishedStatus.get(roomId);
-            if (status) {
-              console.log(`Room ${roomId}: Safety timeout reached. Ending game for all.`);
+            const current = getRoomState(roomId);
+            if (current) {
               await endGame(roomId, io);
             }
           }, 15000);
