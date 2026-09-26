@@ -7,6 +7,7 @@ export function getRoomState(roomId) {
       currentHint: '',
       currentRound: 1,
       locked: false,
+      roundTimer: null,
       finishedPlayers: new Set()
     });
   }
@@ -20,5 +21,11 @@ export function setRoomState(roomId, data) {
 }
 
 export function deleteRoomState(roomId) {
-  rooms.delete(roomId);
+  if (rooms.has(roomId)) {
+    const state = rooms.get(roomId);
+    if (state.roundTimer) {
+      clearTimeout(state.roundTimer);
+    }
+    rooms.delete(roomId);
+  }
 }

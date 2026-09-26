@@ -11,21 +11,19 @@ import { getRoomState, setRoomState, deleteRoomState } from './utils/roomState.j
 dotenv.config();
 
 const server = http.createServer();
-const clientUrl = process.env.CLIENT_URL || 'https://scramble-eta.vercel.app';
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 const allowedOrigins = [
   clientUrl,
-  'http://localhost:8080',
-  'http://localhost:5173',
-  'http://localhost:3000'
+  'http://localhost:5173'
 ];
 
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin)) {
+      if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST'],
     credentials: true
@@ -60,11 +58,77 @@ async function endGame(roomId, socketIo) {
     }
 
     socketIo.to(roomId).emit('game-ended', { winner, participants: participants.rows });
+    socketIo.to(roomId).emit('gameEnded', { winner, participants: participants.rows });
     deleteRoomState(roomId);
   } catch (err) {
     console.error('End game logic failure:', err);
   }
 }
+
+export async function sendNewWord(roomId, socketIo) {
+  try {
+    const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
+    if (roomData.rows.length === 0) return;
+
+    const difficulty = roomData.rows[0].difficulty || 'easy';
+    const currentRound = roomData.rows[0].current_round || 0;
+    const nextRound = currentRound + 1;
+
+    if (nextRound > GAME_CONFIG.rounds) {
+      await endGame(roomId, socketIo);
+      return;
+    }
+
+    const words = wordBanks[difficulty] || wordBanks.easy;
+    const randomIndex = Math.floor(Math.random() * words.length);
+    const wordItem = words[randomIndex];
+    const scrambled = scrambleWord(wordItem.word);
+
+    await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
+
+    const state = setRoomState(roomId, {
+      currentWord: wordItem.word,
+      currentHint: wordItem.hint,
+      currentRound: nextRound,
+      locked: false
+    });
+
+    socketIo.to(roomId).emit('newWord', {
+      word: wordItem.word,
+      hint: wordItem.hint,
+      scrambled: scrambled,
+      round: nextRound,
+      totalRounds: GAME_CONFIG.rounds
+    });
+
+    if (state.roundTimer) {
+      clearTimeout(state.roundTimer);
+    }
+
+    state.roundTimer = setTimeout(async () => {
+      try {
+        const currentState = getRoomState(roomId);
+        if (currentState.currentRound === nextRound && !currentState.locked) {
+          currentState.locked = true;
+          socketIo.to(roomId).emit('round-timeout', {
+            word: currentState.currentWord,
+            round: nextRound
+          });
+
+          setTimeout(async () => {
+            await sendNewWord(roomId, socketIo);
+          }, 2500);
+        }
+      } catch (err) {
+        console.error('Round timer error:', err);
+      }
+    }, (GAME_CONFIG.roundTime + 4) * 1000);
+  } catch (error) {
+    console.error('sendNewWord error:', error);
+  }
+}
+
+io.sendNewWord = (roomId) => sendNewWord(roomId, io);
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -197,38 +261,13 @@ io.on('connection', (socket) => {
         if (roomState.locked) return;
         roomState.locked = true;
 
+        if (roomState.roundTimer) {
+          clearTimeout(roomState.roundTimer);
+          roomState.roundTimer = null;
+        }
+
         setTimeout(async () => {
-          try {
-            if (currentRound < GAME_CONFIG.rounds) {
-              const words = wordBanks[difficulty];
-              const randomIndex = Math.floor(Math.random() * words.length);
-              const wordItem = words[randomIndex];
-              const scrambled = scrambleWord(wordItem.word);
-
-              await pool.query('UPDATE game_rooms SET current_round = current_round + 1 WHERE id = $1', [roomId]);
-
-              setRoomState(roomId, {
-                currentWord: wordItem.word,
-                currentHint: wordItem.hint,
-                currentRound: currentRound + 1,
-                locked: false
-              });
-
-              io.to(roomId).emit('newWord', {
-                word: wordItem.word,
-                hint: wordItem.hint,
-                scrambled: scrambled,
-                round: currentRound + 1
-              });
-            } else {
-              const winner = participants.rows[0];
-              io.to(roomId).emit('gameEnded', { winner });
-              roomState.locked = false;
-            }
-          } catch (error) {
-            console.error('Error sending next word:', error);
-            roomState.locked = false;
-          }
+          await sendNewWord(roomId, io);
         }, 2500);
       }
     } catch (error) {
