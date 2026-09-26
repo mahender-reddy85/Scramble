@@ -11,9 +11,13 @@ dotenv.config();
 const server = http.createServer();
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:8080", "https://scramble-eta.vercel.app"],
-    methods: ["GET", "POST"]
-  }
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling']
 });
 
 const app = createApp(io);

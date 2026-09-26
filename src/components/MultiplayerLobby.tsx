@@ -54,8 +54,14 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     if (!roomId || !currentUserId) return;
 
     const token = localStorage.getItem('token');
-    socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
-      query: { roomId, userId: currentUserId }
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+    socketRef.current = io(baseUrl, {
+      query: { roomId, userId: currentUserId },
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      timeout: 10000
     });
 
     socketRef.current.on('connect', () => {
@@ -65,6 +71,10 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
         playerName,
         token
       });
+    });
+
+    socketRef.current.on('connect_error', (err) => {
+      console.warn('Socket connection error:', err.message);
     });
 
     socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {
@@ -104,10 +114,17 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     if (!roomId) return;
     try {
       const response = await apiClient.get(`/api/game/rooms/${roomId}`);
+      if (!response || !response.room) {
+        throw new Error('Room not found');
+      }
       setPlayers(response.participants || []);
       setCreatorName(response.room.creator_name || 'Unknown');
-    } catch {
-      toast.error('Failed to load room data. Please refresh the page.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Room not found or no longer available.';
+      toast.error(message);
+      setRoomId(null);
+      setRoomCode('');
+      setPlayers([]);
     }
   }, [roomId]);
 

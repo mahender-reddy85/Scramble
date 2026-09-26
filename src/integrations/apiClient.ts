@@ -8,7 +8,16 @@ const handleResponse = async (res: Response) => {
     handleUnauthorized();
     throw new Error("Unauthorized");
   }
-  if (!res.ok) throw new Error("API request failed");
+  if (!res.ok) {
+    let errorMsg = res.status === 404 ? "Resource not found" : "API request failed";
+    try {
+      const data = await res.json();
+      if (data && data.error) errorMsg = data.error;
+    } catch {
+      // Non-JSON error response
+    }
+    throw new Error(errorMsg);
+  }
   return res.json();
 };
 
@@ -20,7 +29,10 @@ const getAuthHeaders = () => {
   };
 };
 
-const getBaseUrl = () => import.meta.env.VITE_API_URL || "";
+const getBaseUrl = () => {
+  const url = import.meta.env.VITE_API_URL || "";
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+};
 
 export const apiClient = {
   async get(url: string) {
