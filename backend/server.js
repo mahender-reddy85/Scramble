@@ -11,19 +11,28 @@ import { getRoomState, setRoomState, deleteRoomState } from './utils/roomState.j
 dotenv.config();
 
 const server = http.createServer();
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const clientUrl = process.env.CLIENT_URL;
 const allowedOrigins = [
-  clientUrl,
-  'http://localhost:5173'
+  'http://localhost:5173',
+  'https://scramble-eta.vercel.app',
+  ...(clientUrl ? [clientUrl] : [])
 ];
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+  if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
+  return false;
+}
 
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
-      return callback(new Error('Not allowed by CORS'));
+      return callback(null, false);
     },
     methods: ['GET', 'POST'],
     credentials: true

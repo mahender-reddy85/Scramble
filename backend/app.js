@@ -22,18 +22,41 @@ export function createApp(io = null) {
     });
   }
 
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const clientUrl = process.env.CLIENT_URL;
   const allowedOrigins = [
-    clientUrl,
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'https://scramble-eta.vercel.app',
+    ...(clientUrl ? [clientUrl] : [])
   ];
+
+  function isOriginAllowed(origin) {
+    if (!origin) return true;
+    if (allowedOrigins.includes(origin)) return true;
+    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+    if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
+    return false;
+  }
+
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (isOriginAllowed(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    }
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    next();
+  });
 
   const corsOptions = {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
-      return callback(new Error('Not allowed by CORS'));
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -41,7 +64,6 @@ export function createApp(io = null) {
   };
 
   app.use(cors(corsOptions));
-  app.options('*', cors(corsOptions));
   app.use(express.json());
 
   const globalLimiter = rateLimit({
