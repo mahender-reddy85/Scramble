@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import crypto from 'crypto';
 import pool from '../db.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -91,17 +92,11 @@ router.post('/login', [
   }
 });
 
-router.get('/me', async (req, res) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader?.split(' ')[1];
-
-  if (!token) return res.status(401).json({ error: "No token provided" });
-
+router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const result = await pool.query(
       'SELECT id, username, avatar_url FROM users WHERE id = $1',
-      [decoded.id]
+      [req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -109,12 +104,13 @@ router.get('/me', async (req, res) => {
     }
 
     return res.json({ user: result.rows[0] });
-  } catch {
-    return res.status(403).json({ error: "Invalid token" });
+  } catch (err) {
+    console.error("Get user error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
-router.put('/profile', [
+router.put('/profile', authenticateToken, [
   body('username').optional().isLength({ min: 3 }).trim(),
   body('avatar_url').optional().isURL()
 ], async (req, res) => {
@@ -123,19 +119,14 @@ router.put('/profile', [
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const authHeader = req.headers['authorization'];
-  const token = authHeader?.split(' ')[1];
-
-  if (!token) return res.status(401).json({ error: "No token provided" });
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = req.user.id;
     const { username, avatar_url } = req.body;
 
     if (username) {
       const existing = await pool.query(
         'SELECT id FROM users WHERE username = $1 AND id != $2',
-        [username, decoded.id]
+        [username, userId]
       );
       if (existing.rows.length > 0) {
         return res.status(400).json({ error: 'Username already taken' });
@@ -144,7 +135,7 @@ router.put('/profile', [
 
     await pool.query(
       'UPDATE users SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url) WHERE id = $3',
-      [username, avatar_url, decoded.id]
+      [username, avatar_url, userId]
     );
 
     return res.json({ message: 'Profile updated successfully' });

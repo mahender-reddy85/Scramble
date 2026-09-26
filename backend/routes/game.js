@@ -16,6 +16,20 @@ router.get('/words/:difficulty', async (req, res) => {
   res.json({ words: wordBanks[difficulty] });
 });
 
+router.get('/puzzle/:difficulty', async (req, res) => {
+  const { difficulty } = req.params;
+  const list = wordBanks[difficulty];
+  if (!list) {
+    return res.status(400).json({ error: 'Invalid difficulty' });
+  }
+  const randomItem = list[Math.floor(Math.random() * list.length)];
+  res.json({
+    scrambled: scrambleWord(randomItem.word),
+    hint: randomItem.hint,
+    length: randomItem.word.length
+  });
+});
+
 router.get('/rooms', optionalAuth, async (req, res) => {
   try {
     const rooms = await pool.query(`

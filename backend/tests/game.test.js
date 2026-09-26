@@ -64,6 +64,23 @@ describe('GET /api/game/words/:difficulty', () => {
   });
 });
 
+describe('GET /api/game/puzzle/:difficulty', () => {
+  it('returns scrambled word and hint for a difficulty', async () => {
+    const res = await request(app).get('/api/game/puzzle/easy');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('scrambled');
+    expect(res.body).toHaveProperty('hint');
+    expect(res.body).toHaveProperty('length');
+    expect(typeof res.body.scrambled).toBe('string');
+  });
+
+  it('returns 400 for invalid difficulty', async () => {
+    const res = await request(app).get('/api/game/puzzle/impossible');
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('Invalid difficulty');
+  });
+});
+
 describe('GET /api/game/rooms', () => {
   it('returns available waiting rooms', async () => {
     pool.query.mockResolvedValueOnce({
