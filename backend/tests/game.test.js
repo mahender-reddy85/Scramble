@@ -34,6 +34,22 @@ describe('GET /api/health', () => {
 });
 
 describe('CORS policy', () => {
+  it('allows production frontend https://scramble-eta.vercel.app with preflight', async () => {
+    const preflight = await request(app)
+      .options('/api/game/words/easy')
+      .set('Origin', 'https://scramble-eta.vercel.app')
+      .set('Access-Control-Request-Method', 'GET');
+    expect([200, 204]).toContain(preflight.statusCode);
+    expect(preflight.headers['access-control-allow-origin']).toBe('https://scramble-eta.vercel.app');
+    expect(preflight.headers['access-control-allow-credentials']).toBe('true');
+
+    const res = await request(app)
+      .get('/api/game/words/easy')
+      .set('Origin', 'https://scramble-eta.vercel.app');
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBe('https://scramble-eta.vercel.app');
+  });
+
   it('allows requests from http://localhost:5173 in non-production', async () => {
     const res = await request(app)
       .get('/api/health')

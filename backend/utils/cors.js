@@ -1,18 +1,27 @@
+const defaultOrigins = [
+  'https://scramble-eta.vercel.app',
+  'http://localhost:5173'
+];
+
 export function isOriginAllowed(origin) {
   if (!origin) return true;
 
+  const normalizedOrigin = origin.trim().replace(/\/+$/, '');
+
   const clientUrl = process.env.CLIENT_URL;
   if (clientUrl) {
-    const normalizedClientUrl = clientUrl.replace(/\/$/, '');
-    if (origin === normalizedClientUrl) {
+    const configuredUrls = clientUrl
+      .split(',')
+      .map(u => u.trim().replace(/\/+$/, ''))
+      .filter(Boolean);
+
+    if (configuredUrls.includes(normalizedOrigin)) {
       return true;
     }
   }
 
-  if (process.env.NODE_ENV !== 'production') {
-    if (origin === 'http://localhost:5173') {
-      return true;
-    }
+  if (defaultOrigins.includes(normalizedOrigin)) {
+    return true;
   }
 
   return false;
@@ -27,5 +36,6 @@ export const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 };
