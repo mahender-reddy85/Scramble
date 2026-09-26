@@ -169,27 +169,6 @@ npm run dev
 
 Frontend will be available at **http://localhost:5173**
 
----
-
-## 🔑 Environment Variables
-
-### Backend (`backend/.env`)
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_URL` | ✅ | — | Full PostgreSQL connection string |
-| `JWT_SECRET` | ✅ | — | Secret key used to sign JWT tokens (use a long random string) |
-| `PORT` | ❌ | `3001` | Port the Express server listens on |
-| `CLIENT_URL` | ❌ | `http://localhost:5173` | Allowed frontend origin for CORS |
-
-### Frontend (`.env` in project root)
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `VITE_API_URL` | ✅ | — | Base URL of the backend API (e.g. `http://localhost:3001`) |
-
----
-
 ## 📡 API Endpoints
 
 All REST routes are prefixed with `/api`. Protected routes require a `Bearer <token>` header.
