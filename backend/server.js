@@ -145,20 +145,26 @@ io.on('connection', (socket) => {
   socket.on('join-room', async (data) => {
     const { roomId, userId, playerName, token } = data;
 
-    if (!token) {
-      socket.emit('error', { message: 'No token provided' });
+    let authenticatedUserId = null;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        authenticatedUserId = decoded.id;
+      } catch (err) {
+        console.warn('Socket token verify failed:', err.message);
+      }
+    }
+
+    const effectiveUserId = authenticatedUserId || userId;
+    if (!effectiveUserId) {
+      socket.emit('error', { message: 'Authentication required' });
       return;
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (decoded.id !== userId) {
-        socket.emit('error', { message: 'Invalid token' });
-        return;
-      }
-
       socket.join(roomId);
-      socket.userId = decoded.id;
+      socket.userId = effectiveUserId;
+      socket.roomId = roomId;
 
       const roomData = await pool.query(`
         SELECT gr.*, COUNT(gp.id) as player_count
@@ -190,7 +196,7 @@ io.on('connection', (socket) => {
       socket.emit('participantsUpdated', participants.rows);
 
       socket.to(roomId).emit('participant-joined', {
-        userId,
+        userId: effectiveUserId,
         playerName,
         participants: participants.rows
       });
@@ -210,20 +216,35 @@ io.on('connection', (socket) => {
 
   socket.on('submit-answer', async (data) => {
     const { roomId, word, timeRemaining } = data;
-    const userId = socket.userId;
+    const userId = socket.userId || data?.userId;
+
+    if (!userId) {
+      socket.emit('error', { message: 'Unauthenticated socket' });
+      return;
+    }
+
     const roomState = getRoomState(roomId);
+    if (roomState.locked) {
+      return;
+    }
+
     const currentWord = roomState.currentWord;
-    const isCorrect = currentWord && word && (word.toUpperCase() === currentWord.toUpperCase());
+    const isCorrect = Boolean(currentWord && word && (String(word).trim().toUpperCase() === String(currentWord).trim().toUpperCase()));
 
     try {
       const roomData = await pool.query('SELECT current_round, difficulty FROM game_rooms WHERE id = $1', [roomId]);
       if (roomData.rows.length === 0) return;
 
       const difficulty = roomData.rows[0].difficulty || 'easy';
-      const currentRound = roomData.rows[0].current_round || 0;
       let pointsToAward = 0;
 
       if (isCorrect) {
+        roomState.locked = true;
+        if (roomState.roundTimer) {
+          clearTimeout(roomState.roundTimer);
+          roomState.roundTimer = null;
+        }
+
         const participantQuery = await pool.query('SELECT current_streak FROM game_participants WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
         const current_streak = participantQuery.rows[0]?.current_streak || 0;
         const basePoints = GAME_CONFIG.basePoints[difficulty] || 5;
@@ -260,21 +281,13 @@ io.on('connection', (socket) => {
 
       io.to(roomId).emit('answer-submitted', {
         userId,
-        word,
+        word: currentWord,
         isCorrect,
         points: pointsToAward,
         participants: participants.rows
       });
 
       if (isCorrect) {
-        if (roomState.locked) return;
-        roomState.locked = true;
-
-        if (roomState.roundTimer) {
-          clearTimeout(roomState.roundTimer);
-          roomState.roundTimer = null;
-        }
-
         setTimeout(async () => {
           await sendNewWord(roomId, io);
         }, 2500);

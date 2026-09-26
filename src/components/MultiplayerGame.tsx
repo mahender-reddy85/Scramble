@@ -12,9 +12,19 @@ interface MultiplayerGameProps {
   initialWord?: { word: string; hint: string; scrambled: string } | null;
   onExit: () => void;
   socket: Socket | null;
+  currentUserId?: string;
+  playerName?: string;
 }
 
-export default function MultiplayerGame({ roomId, difficulty, initialWord, onExit, socket }: MultiplayerGameProps) {
+export default function MultiplayerGame({
+  roomId,
+  difficulty,
+  initialWord,
+  onExit,
+  socket,
+  currentUserId: propUserId,
+  playerName: propPlayerName
+}: MultiplayerGameProps) {
   const [currentWord, setCurrentWord] = useState('');
   const [scrambledWord, setScrambledWord] = useState('');
   const [currentHint, setCurrentHint] = useState('');
@@ -27,7 +37,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   const [showHint, setShowHint] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>(propUserId || '');
   const [gameEnded, setGameEnded] = useState(false);
   const [waitingForOthers, setWaitingForOthers] = useState(false);
   const [winner, setWinner] = useState<Player | null>(null);
@@ -38,7 +48,22 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const socketRef = useRef<Socket | null>(null);
-  const playerNameRef = useRef<string>('');
+
+  const token = localStorage.getItem('token');
+  let tokenUserId = '';
+  let tokenUsername = '';
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      tokenUserId = payload.id || payload.user?.id || '';
+      tokenUsername = payload.username || payload.user?.username || '';
+    } catch {
+      // ignore
+    }
+  }
+
+  const effectiveUserId = propUserId || currentUserId || tokenUserId || 'anonymous';
+  const effectivePlayerName = propPlayerName || tokenUsername || '';
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -95,17 +120,30 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
   }, [roomId]);
 
   useEffect(() => {
+    if (!showCountdown) return;
+
+    if (countdown > 1) {
+      const timer = setTimeout(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
+    if (countdown <= 1) {
+      const timer = setTimeout(() => {
+        setShowCountdown(false);
+        setIsActive(true);
+        setTimeLeft(20);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [showCountdown, countdown]);
+
+  useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    const token = localStorage.getItem('token');
-    let userId = 'anonymous';
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userId = payload.id || payload.user?.id || 'anonymous';
-        setCurrentUserId(userId);
-      } catch {
-        setCurrentUserId('anonymous');
-      }
+    if (effectiveUserId && effectiveUserId !== 'anonymous') {
+      setCurrentUserId(effectiveUserId);
     }
 
     if (roomId && socket) {
@@ -120,31 +158,63 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
         setTimeLeft(20);
         setShowCountdown(true);
         setCountdown(3);
+        setIsActive(false);
         setShowHint(false);
         setHintUsed(false);
         if (data.round) setRoundCount(data.round);
       };
 
-      const handleAnswerSubmitted = (data: { participants?: Player[]; userId?: string; isCorrect?: boolean; points?: number }) => {
-        if (data.participants) setPlayers(data.participants);
-        if (data.userId === userId) {
+      const handleAnswerSubmitted = (data: {
+        participants?: Player[];
+        userId?: string;
+        word?: string;
+        isCorrect?: boolean;
+        points?: number;
+      }) => {
+        if (data.participants) {
+          setPlayers(
+            data.participants.map((player) => ({
+              ...player,
+              score: Number(player.score) || 0,
+              current_streak: Number(player.current_streak) || 0,
+            }))
+          );
+        }
+
+        const isMe = String(data.userId) === String(effectiveUserId);
+
+        if (isMe) {
           if (data.isCorrect) {
             playSound('correct');
             stopTimer();
-            setFeedback({ message: `Correct! +${data.points} points`, type: 'success' });
+            setAnswer('');
+            setFeedback({ message: `Correct! +${data.points || 0} points`, type: 'success' });
           } else {
             playSound('wrong');
             setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
             setTimeout(() => {
               setFeedback({ message: '', type: '' });
               inputRef.current?.focus();
+              inputRef.current?.select();
             }, 1500);
           }
+        } else if (data.isCorrect) {
+          stopTimer();
+          const solver = data.participants?.find((p) => String(p.user_id) === String(data.userId));
+          const solverName = solver?.player_name || 'Another player';
+          setFeedback({
+            message: `${solverName} solved the word: ${data.word || ''}! Next round starting soon...`,
+            type: 'error',
+          });
         }
       };
 
       const handleRoundTimeout = (data: { word?: string }) => {
         stopTimer();
+        setFeedback({
+          message: `Round ended! The word was: ${data.word || ''}`,
+          type: 'error',
+        });
         toast.error(`Round ended! The word was: ${data.word || ''}`, {
           position: 'bottom-right',
           duration: 3000,
@@ -156,6 +226,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       };
 
       const handleGameEnded = (data: { winner: Player; participants: Player[] }) => {
+        stopTimer();
         setWinner(data.winner);
         setPlayers(data.participants);
         setGameEnded(true);
@@ -182,16 +253,16 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       if (socket.connected) {
         socket.emit('join-room', {
           roomId,
-          userId,
-          playerName: playerNameRef.current,
+          userId: effectiveUserId,
+          playerName: effectivePlayerName,
           token
         });
       } else {
         socket.once('connect', () => {
           socket.emit('join-room', {
             roomId,
-            userId,
-            playerName: playerNameRef.current,
+            userId: effectiveUserId,
+            playerName: effectivePlayerName,
             token
           });
         });
@@ -213,7 +284,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     return () => {
       audioContextRef.current?.close();
     };
-  }, [roomId, socket, loadPlayers, playSound, stopTimer]);
+  }, [roomId, socket, effectiveUserId, effectivePlayerName, token, loadPlayers, playSound, stopTimer]);
 
   useEffect(() => {
     if (initialWord) {
@@ -222,7 +293,7 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
       setCurrentHint(initialWord.hint);
       setIsActive(true);
       inputRef.current?.focus();
-      setRoundCount(prev => prev === 0 ? 1 : prev);
+      setRoundCount((prev) => (prev === 0 ? 1 : prev));
     }
   }, [initialWord]);
 
@@ -236,11 +307,12 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('submit-answer', {
         roomId,
+        userId: effectiveUserId,
         word: '',
-        timeRemaining: 0
+        timeRemaining: 0,
       });
     }
-  }, [currentWord, stopTimer, roomId]);
+  }, [currentWord, stopTimer, roomId, effectiveUserId]);
 
   const checkAnswer = useCallback(() => {
     if (!isActive) return;
@@ -255,12 +327,14 @@ export default function MultiplayerGame({ roomId, difficulty, initialWord, onExi
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('submit-answer', {
         roomId,
+        userId: effectiveUserId,
         word: userAnswer,
-        timeRemaining: timeLeft
+        timeRemaining: timeLeft,
       });
-      setAnswer('');
+    } else {
+      toast.error('Connection lost. Please wait...');
     }
-  }, [isActive, answer, roomId, timeLeft]);
+  }, [isActive, answer, roomId, effectiveUserId, timeLeft]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {

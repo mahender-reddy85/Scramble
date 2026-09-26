@@ -8,6 +8,39 @@ import MultiplayerLobby from './MultiplayerLobby';
 import UserMenu from './UserMenu';
 import { useNavigate } from 'react-router-dom';
 
+const FALLBACK_WORDS: Record<'easy' | 'medium' | 'hard', Array<{ word: string; hint: string }>> = {
+  easy: [
+    { word: 'APPLE', hint: 'A common fruit' },
+    { word: 'HOUSE', hint: 'A place to live' },
+    { word: 'WATER', hint: 'Essential for life' },
+    { word: 'MUSIC', hint: 'Sound that entertains' },
+    { word: 'LIGHT', hint: 'Opposite of dark' },
+    { word: 'HAPPY', hint: 'A positive emotion' },
+    { word: 'PHONE', hint: 'Communication device' },
+    { word: 'CHAIR', hint: 'Furniture to sit on' },
+    { word: 'CLOUD', hint: 'Floats in the sky' },
+    { word: 'BREAD', hint: 'Used for sandwiches' }
+  ],
+  medium: [
+    { word: 'PLANET', hint: 'Celestial body orbiting a star' },
+    { word: 'GARDEN', hint: 'Plot of ground for plants' },
+    { word: 'BRIDGE', hint: 'Structure spanning an obstacle' },
+    { word: 'FOREST', hint: 'Large area covered with trees' },
+    { word: 'SILVER', hint: 'Precious metallic element' },
+    { word: 'CASTLE', hint: 'Fortified residence' },
+    { word: 'WINTER', hint: 'Coldest season' },
+    { word: 'DOCTOR', hint: 'Medical professional' }
+  ],
+  hard: [
+    { word: 'ELEPHANT', hint: 'Largest living land animal' },
+    { word: 'MOUNTAIN', hint: 'Large natural elevation' },
+    { word: 'DIAMOND', hint: 'Precious stone of pure carbon' },
+    { word: 'PYRAMID', hint: 'Monumental structure with triangular sides' },
+    { word: 'HOSPITAL', hint: 'Institution for medical treatment' },
+    { word: 'NOTEBOOK', hint: 'Book with blank pages for writing' }
+  ]
+};
+
 export default function WordScramble() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -37,10 +70,13 @@ export default function WordScramble() {
       setIsLoadingWords(true);
       try {
         const response = await apiClient.get(`/api/game/words/${difficulty}`);
-        setWordList(response.words || []);
+        if (response?.words && response.words.length > 0) {
+          setWordList(response.words);
+        } else {
+          setWordList(FALLBACK_WORDS[difficulty] || FALLBACK_WORDS.easy);
+        }
       } catch {
-        setWordList([]);
-        toast.error('Failed to load words. Please try again.');
+        setWordList(FALLBACK_WORDS[difficulty] || FALLBACK_WORDS.easy);
       } finally {
         setIsLoadingWords(false);
       }
@@ -172,6 +208,7 @@ export default function WordScramble() {
   const handleCorrectAnswer = useCallback(() => {
     stopTimer();
     playSound('correct');
+    setAnswer('');
 
     const basePoints = Number(getBasePoints()) || 5;
     const currentStreak = Number(streak) || 0;
@@ -194,11 +231,11 @@ export default function WordScramble() {
     playSound('wrong');
     setStreak(0);
     setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
-    setAnswer('');
     setTimeout(() => {
       setFeedback({ message: '', type: '' });
       inputRef.current?.focus();
-    }, 2000);
+      inputRef.current?.select();
+    }, 1500);
   }, [playSound]);
 
   const checkAnswer = useCallback(() => {
@@ -211,7 +248,7 @@ export default function WordScramble() {
       return;
     }
 
-    if (userAnswer === currentWord) {
+    if (userAnswer === currentWord.trim().toUpperCase()) {
       handleCorrectAnswer();
     } else {
       handleWrongAnswer();

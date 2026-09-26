@@ -252,6 +252,8 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
         difficulty={difficulty}
         initialWord={initialWord}
         socket={socketRef.current}
+        currentUserId={currentUserId}
+        playerName={playerName}
         onExit={() => {
           setGameStarted(false);
           setRoomId(null);
