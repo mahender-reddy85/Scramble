@@ -20,46 +20,44 @@ const getAuthHeaders = () => {
   };
 };
 
+const getBaseUrl = () => import.meta.env.VITE_API_URL || "";
+
 export const apiClient = {
   async get(url: string) {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
+    const res = await fetch(`${getBaseUrl()}${url}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse(res);
   },
-
   async post(url: string, body: Record<string, unknown>) {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
+    const res = await fetch(`${getBaseUrl()}${url}`, {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify(body),
     });
     return handleResponse(res);
   },
-
   async put(url: string, body: Record<string, unknown>) {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
+    const res = await fetch(`${getBaseUrl()}${url}`, {
       method: "PUT",
       headers: getAuthHeaders(),
       body: JSON.stringify(body),
     });
     return handleResponse(res);
   },
-
   async patch(url: string, body: Record<string, unknown>) {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
+    const res = await fetch(`${getBaseUrl()}${url}`, {
       method: "PATCH",
       headers: getAuthHeaders(),
       body: JSON.stringify(body),
     });
     return handleResponse(res);
   },
-
   async delete(url: string) {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
+    const res = await fetch(`${getBaseUrl()}${url}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
     return handleResponse(res);
-  }
+  },
 };

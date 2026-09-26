@@ -1,6 +1,4 @@
-
 import { jest } from '@jest/globals';
-
 
 jest.unstable_mockModule('../db.js', async () => {
   const { default: pool } = await import('../__mocks__/db.js');
@@ -11,7 +9,6 @@ const { default: pool } = await import('../__mocks__/db.js');
 const { createApp } = await import('../app.js');
 const { default: request } = await import('supertest');
 const { default: jwt } = await import('jsonwebtoken');
-
 
 let app;
 let authToken;
@@ -27,7 +24,6 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-
 describe('GET /api/health', () => {
   it('returns status OK', async () => {
     const res = await request(app).get('/api/health');
@@ -36,7 +32,6 @@ describe('GET /api/health', () => {
     expect(res.body).toHaveProperty('timestamp');
   });
 });
-
 
 describe('GET /api/game/words/:difficulty', () => {
   it('returns word list for easy difficulty', async () => {
@@ -51,12 +46,14 @@ describe('GET /api/game/words/:difficulty', () => {
   it('returns word list for medium difficulty', async () => {
     const res = await request(app).get('/api/game/words/medium');
     expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body.words)).toBe(true);
     expect(res.body.words.length).toBeGreaterThan(0);
   });
 
   it('returns word list for hard difficulty', async () => {
     const res = await request(app).get('/api/game/words/hard');
     expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body.words)).toBe(true);
     expect(res.body.words.length).toBeGreaterThan(0);
   });
 
@@ -66,7 +63,6 @@ describe('GET /api/game/words/:difficulty', () => {
     expect(res.body.error).toBe('Invalid difficulty');
   });
 });
-
 
 describe('GET /api/game/rooms', () => {
   it('returns available waiting rooms', async () => {
@@ -87,10 +83,9 @@ describe('GET /api/game/rooms', () => {
 
 describe('POST /api/game/rooms', () => {
   it('creates a room and returns roomId + roomCode', async () => {
-
     pool.query
-      .mockResolvedValueOnce({ rows: [] })   
-      .mockResolvedValueOnce({ rows: [] });  
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
 
     const res = await request(app)
       .post('/api/game/rooms')
@@ -112,10 +107,9 @@ describe('POST /api/game/rooms', () => {
   });
 });
 
-
 describe('POST /api/game/rooms/:roomId/join', () => {
   it('returns 404 when room does not exist or is not waiting', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [] }); 
+    pool.query.mockResolvedValueOnce({ rows: [] });
 
     const res = await request(app)
       .post('/api/game/rooms/nonexistent-room/join')
@@ -128,8 +122,8 @@ describe('POST /api/game/rooms/:roomId/join', () => {
 
   it('returns 400 when room is already full', async () => {
     pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 'room-1', status: 'waiting' }] }) 
-      .mockResolvedValueOnce({ rows: [{ count: '2' }] });                     
+      .mockResolvedValueOnce({ rows: [{ id: 'room-1', status: 'waiting' }] })
+      .mockResolvedValueOnce({ rows: [{ count: '2' }] });
 
     const res = await request(app)
       .post('/api/game/rooms/room-1/join')
@@ -142,9 +136,9 @@ describe('POST /api/game/rooms/:roomId/join', () => {
 
   it('returns 400 when user already joined the room', async () => {
     pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 'room-1', status: 'waiting' }] }) 
-      .mockResolvedValueOnce({ rows: [{ count: '1' }] })                      
-      .mockResolvedValueOnce({ rows: [{ id: 'p-1' }] });                      
+      .mockResolvedValueOnce({ rows: [{ id: 'room-1', status: 'waiting' }] })
+      .mockResolvedValueOnce({ rows: [{ count: '1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'p-1' }] });
 
     const res = await request(app)
       .post('/api/game/rooms/room-1/join')

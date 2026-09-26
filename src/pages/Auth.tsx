@@ -14,14 +14,11 @@ export default function Auth() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!email || !password) {
       toast.error('Please fill in all fields');
       return;
     }
-
     setLoading(true);
-
     try {
       if (isLogin) {
         const response = await apiClient.post('/api/auth/login', { email, password });
@@ -58,7 +55,6 @@ export default function Auth() {
             {isLogin ? 'Log in to play multiplayer' : 'Sign up to get started'}
           </p>
         </div>
-
         <form onSubmit={handleAuth} className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Email</label>
@@ -71,7 +67,6 @@ export default function Auth() {
               required
             />
           </div>
-
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Password</label>
             <Input
@@ -83,7 +78,6 @@ export default function Auth() {
               required
             />
           </div>
-
           <Button
             type="submit"
             disabled={loading}
@@ -92,7 +86,6 @@ export default function Auth() {
             {loading ? 'Loading...' : isLogin ? 'Log In' : 'Sign Up'}
           </Button>
         </form>
-
         <div className="text-center">
           <button
             onClick={() => setIsLogin(!isLogin)}
@@ -101,7 +94,6 @@ export default function Auth() {
             {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
           </button>
         </div>
-
         <Button
           onClick={() => navigate('/')}
           variant="outline"

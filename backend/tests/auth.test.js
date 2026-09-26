@@ -1,6 +1,4 @@
-
 import { jest } from '@jest/globals';
-
 
 jest.unstable_mockModule('../db.js', async () => {
   const { default: pool } = await import('../__mocks__/db.js');
@@ -10,7 +8,6 @@ jest.unstable_mockModule('../db.js', async () => {
 const { default: pool } = await import('../__mocks__/db.js');
 const { createApp } = await import('../app.js');
 const { default: request } = await import('supertest');
-
 
 let app;
 
@@ -23,13 +20,11 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-
 describe('POST /api/auth/register', () => {
   it('registers a new user successfully', async () => {
-
     pool.query
-      .mockResolvedValueOnce({ rows: [] })       
-      .mockResolvedValueOnce({ rows: [] });       
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
 
     const res = await request(app)
       .post('/api/auth/register')
@@ -77,10 +72,8 @@ describe('POST /api/auth/register', () => {
   });
 });
 
-
 describe('POST /api/auth/login', () => {
   it('logs in with correct credentials', async () => {
-
     const bcrypt = await import('bcryptjs');
     const hash = await bcrypt.default.hash('password123', 10);
 
@@ -132,7 +125,6 @@ describe('POST /api/auth/login', () => {
     expect(res.statusCode).toBe(400);
   });
 });
-
 
 describe('GET /api/auth/me', () => {
   it('returns the user when given a valid JWT', async () => {

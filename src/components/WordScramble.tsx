@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,12 +7,6 @@ import { useTheme } from './ThemeProvider';
 import MultiplayerLobby from './MultiplayerLobby';
 import UserMenu from './UserMenu';
 import { useNavigate } from 'react-router-dom';
-
-interface WordItem {
-  word: string;
-  hint: string;
-}
-
 
 export default function WordScramble() {
   const navigate = useNavigate();
@@ -45,7 +38,7 @@ export default function WordScramble() {
       try {
         const response = await apiClient.get(`/api/game/words/${difficulty}`);
         setWordList(response.words || []);
-      } catch (error) {
+      } catch {
         setWordList([]);
         toast.error('Failed to load words. Please try again.');
       } finally {
@@ -78,14 +71,14 @@ export default function WordScramble() {
 
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
-    
+
     oscillator.connect(gainNode);
     gainNode.connect(ctx.destination);
 
     if (type === 'correct') {
-      oscillator.frequency.setValueAtTime(523.25, ctx.currentTime); 
-      oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); 
-      oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); 
+      oscillator.frequency.setValueAtTime(523.25, ctx.currentTime);
+      oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2);
       gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
       oscillator.start(ctx.currentTime);
@@ -124,14 +117,14 @@ export default function WordScramble() {
       setShouldLoadWordOnReady(true);
       return;
     }
-    
+
     if (wordList.length === 0) {
       toast.error('No words available to play.');
       return;
     }
     const randomIndex = Math.floor(Math.random() * wordList.length);
     const wordItem = wordList[randomIndex];
-    
+
     setCurrentWord(wordItem.word);
     setScrambledWord(scrambleWord(wordItem.word));
     setCurrentHint(wordItem.hint);
@@ -141,7 +134,7 @@ export default function WordScramble() {
     setIsActive(true);
     setShowHint(false);
     setHintUsed(false);
-    
+
     setTimeout(() => inputRef.current?.focus(), 100);
   }, [wordList, scrambleWord, isLoadingWords]);
 
@@ -179,7 +172,7 @@ export default function WordScramble() {
   const handleCorrectAnswer = useCallback(() => {
     stopTimer();
     playSound('correct');
-    
+
     const basePoints = Number(getBasePoints()) || 5;
     const currentStreak = Number(streak) || 0;
     const newStreak = currentStreak + 1;
@@ -189,11 +182,11 @@ export default function WordScramble() {
     let totalPoints = Number(basePoints + streakBonus + timeBonus);
     if (isNaN(totalPoints)) totalPoints = 10;
     totalPoints = Math.floor(totalPoints);
-    
+
     setScore(prev => prev + totalPoints);
     setStreak(newStreak);
     setFeedback({ message: `Correct! +${totalPoints} points`, type: 'success' });
-    
+
     setTimeout(() => loadNewWord(), 1000);
   }, [stopTimer, getBasePoints, streak, timeLeft, loadNewWord, playSound]);
 
@@ -210,14 +203,14 @@ export default function WordScramble() {
 
   const checkAnswer = useCallback(() => {
     if (!isActive) return;
-    
+
     const userAnswer = answer.trim().toUpperCase();
     if (!userAnswer) {
       setFeedback({ message: 'Please enter an answer', type: 'error' });
       setTimeout(() => setFeedback({ message: '', type: '' }), 2000);
       return;
     }
-    
+
     if (userAnswer === currentWord) {
       handleCorrectAnswer();
     } else {
@@ -225,7 +218,7 @@ export default function WordScramble() {
     }
   }, [isActive, answer, currentWord, handleCorrectAnswer, handleWrongAnswer]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       checkAnswer();
@@ -237,7 +230,7 @@ export default function WordScramble() {
       if (timeLeft === 5) {
         playSound('warning');
       }
-      
+
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -297,7 +290,6 @@ export default function WordScramble() {
   };
 
   const isDark = theme === 'dark';
-
   const timerPercentage = (timeLeft / 15) * 100;
   const isLowTime = timeLeft <= 5;
 
@@ -318,7 +310,6 @@ export default function WordScramble() {
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-tight">Word Scramble</h1>
               <p className="text-lg sm:text-xl text-muted-foreground">Challenge your word-solving abilities!</p>
             </div>
-
             <div className="space-y-3">
               <h3 className="font-semibold text-foreground text-center text-lg">Choose Game Mode:</h3>
               <div className="flex gap-3">
@@ -338,7 +329,6 @@ export default function WordScramble() {
                 </Button>
               </div>
             </div>
-
             <div className="space-y-4 text-foreground text-base">
               <div className="bg-muted rounded-xl p-4 space-y-2">
                 <h3 className="font-semibold text-foreground text-lg">🎯 How to Play:</h3>
@@ -349,7 +339,6 @@ export default function WordScramble() {
                   <li>Build streaks for bonus points</li>
                 </ul>
               </div>
-
               <div className="bg-muted rounded-xl p-4 space-y-2">
                 <h3 className="font-semibold text-foreground text-lg">🏆 Scoring:</h3>
                 <ul className="space-y-2 text-base list-disc list-inside">
@@ -361,7 +350,6 @@ export default function WordScramble() {
                 </ul>
               </div>
             </div>
-
             <Button
               onClick={handleStartGame}
               disabled={isLoadingWords && gameMode === 'single'}
@@ -376,7 +364,6 @@ export default function WordScramble() {
               <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">Word Scramble</h1>
               <p className="text-muted-foreground">Ready to play?</p>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-muted rounded-xl border border-border p-4 text-center">
                 <div className="text-sm text-muted-foreground mb-1">Score</div>
@@ -387,7 +374,6 @@ export default function WordScramble() {
                 <div className="text-3xl font-bold text-foreground">{streak}</div>
               </div>
             </div>
-
             <Button
               onClick={handleStartRound}
               disabled={isLoadingWords}
@@ -398,149 +384,142 @@ export default function WordScramble() {
           </div>
         ) : (
           <div className="w-full max-w-[540px] bg-card rounded-2xl border border-border shadow-lg p-4 sm:p-8 space-y-6 relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              stopTimer();
-              setShowStart(true);
-              setScore(0);
-              setStreak(0);
-            }}
-            className="absolute top-2 left-2 sm:top-4 sm:left-4 rounded-full"
-            title="Exit to menu"
-          >
-            ✕
-          </Button>
-
-          <div className="text-center space-y-2 pt-4 sm:pt-0">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight">Word Scramble</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">Unscramble the word before time runs out</p>
-          </div>
-
-          <div className="flex items-center justify-between gap-4">
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              onClick={() => setTheme(isDark ? 'light' : 'dark')}
-              className="rounded-full"
-            >
-              {isDark ? '☀️' : '🌙'}
-            </Button>
-            <div className="flex gap-1 sm:gap-2 items-center overflow-x-auto pb-1 sm:pb-0">
-              {(['easy', 'medium', 'hard'] as const).map((level) => (
-                <Button
-                  key={level}
-                  variant={difficulty === level ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    if (isLoadingWords) return;
-                    setDifficulty(level);
-                    stopTimer();
-                    setShouldLoadWordOnReady(true);
-                  }}
-                  disabled={isLoadingWords}
-                  className="capitalize rounded-full text-xs sm:text-sm px-2 sm:px-3"
-                >
-                  {level}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-muted rounded-xl border border-border p-4 text-center">
-              <div className="text-sm text-muted-foreground mb-1">Score</div>
-              <div className="text-3xl font-bold text-foreground">{score}</div>
-            </div>
-            <div className="bg-muted rounded-xl border border-border p-4 text-center">
-              <div className="text-sm text-muted-foreground mb-1">Streak</div>
-              <div className="text-3xl font-bold text-foreground">{streak}</div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Time Remaining</span>
-              <span className={`font-semibold ${isLowTime ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
-                {timeLeft}s
-              </span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 rounded-full ${
-                  isLowTime ? 'bg-destructive' : 'bg-primary'
-                }`}
-                style={{ width: `${timerPercentage}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="bg-muted rounded-xl border border-border p-4 sm:p-8 text-center space-y-3">
-            <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-normal sm:tracking-widest break-all">
-              {scrambledWord}
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              {showHint && (
-                <div className="text-sm text-muted-foreground italic">{currentHint}</div>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleHint}
-                className="rounded-full"
-                title="Show hint (costs points)"
-              >
-                💡
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                ref={inputRef}
-                type="text"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your answer..."
-                className="flex-1 rounded-xl text-lg"
-                autoComplete="off"
-              />
-              <Button
-                onClick={checkAnswer}
-                disabled={!isActive}
-                className="px-6 rounded-xl font-semibold"
-              >
-                Submit
-              </Button>
-            </div>
-            <Button
-              variant="outline"
               onClick={() => {
-                if (isLoadingWords) return;
                 stopTimer();
-                loadNewWord();
+                setShowStart(true);
+                setScore(0);
+                setStreak(0);
               }}
-              disabled={isLoadingWords}
-              className="w-full rounded-xl"
+              className="absolute top-2 left-2 sm:top-4 sm:left-4 rounded-full"
+              title="Exit to menu"
             >
-              {isLoadingWords ? 'Loading...' : 'New Word'}
+              ✕
             </Button>
-          </div>
-
-          {feedback.message && (
-            <div
-              className={`text-center py-3 px-4 rounded-xl font-semibold ${
-                feedback.type === 'success'
-                  ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30'
-                  : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30'
-              }`}
-            >
-              {feedback.message}
+            <div className="text-center space-y-2 pt-4 sm:pt-0">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight">Word Scramble</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Unscramble the word before time runs out</p>
             </div>
-          )}
+            <div className="flex items-center justify-between gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                className="rounded-full"
+              >
+                {isDark ? '☀️' : '🌙'}
+              </Button>
+              <div className="flex gap-1 sm:gap-2 items-center overflow-x-auto pb-1 sm:pb-0">
+                {(['easy', 'medium', 'hard'] as const).map((level) => (
+                  <Button
+                    key={level}
+                    variant={difficulty === level ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      if (isLoadingWords) return;
+                      setDifficulty(level);
+                      stopTimer();
+                      setShouldLoadWordOnReady(true);
+                    }}
+                    disabled={isLoadingWords}
+                    className="capitalize rounded-full text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    {level}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-muted rounded-xl border border-border p-4 text-center">
+                <div className="text-sm text-muted-foreground mb-1">Score</div>
+                <div className="text-3xl font-bold text-foreground">{score}</div>
+              </div>
+              <div className="bg-muted rounded-xl border border-border p-4 text-center">
+                <div className="text-sm text-muted-foreground mb-1">Streak</div>
+                <div className="text-3xl font-bold text-foreground">{streak}</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Time Remaining</span>
+                <span className={`font-semibold ${isLowTime ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
+                  {timeLeft}s
+                </span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 rounded-full ${
+                    isLowTime ? 'bg-destructive' : 'bg-primary'
+                  }`}
+                  style={{ width: `${timerPercentage}%` }}
+                />
+              </div>
+            </div>
+            <div className="bg-muted rounded-xl border border-border p-4 sm:p-8 text-center space-y-3">
+              <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-normal sm:tracking-widest break-all">
+                {scrambledWord}
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                {showHint && (
+                  <div className="text-sm text-muted-foreground italic">{currentHint}</div>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleHint}
+                  className="rounded-full"
+                  title="Show hint (costs points)"
+                >
+                  💡
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type your answer..."
+                  className="flex-1 rounded-xl text-lg"
+                  autoComplete="off"
+                />
+                <Button
+                  onClick={checkAnswer}
+                  disabled={!isActive}
+                  className="px-6 rounded-xl font-semibold"
+                >
+                  Submit
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (isLoadingWords) return;
+                  stopTimer();
+                  loadNewWord();
+                }}
+                disabled={isLoadingWords}
+                className="w-full rounded-xl"
+              >
+                {isLoadingWords ? 'Loading...' : 'New Word'}
+              </Button>
+            </div>
+            {feedback.message && (
+              <div
+                className={`text-center py-3 px-4 rounded-xl font-semibold ${
+                  feedback.type === 'success'
+                    ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30'
+                    : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30'
+                }`}
+              >
+                {feedback.message}
+              </div>
+            )}
           </div>
         )}
       </div>

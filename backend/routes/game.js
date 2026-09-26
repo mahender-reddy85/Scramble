@@ -6,17 +6,13 @@ import { wordBanks, scrambleWord } from '../utils/wordBanks.js';
 
 const router = express.Router();
 
-
 router.get('/words/:difficulty', async (req, res) => {
   const { difficulty } = req.params;
-
   if (!wordBanks[difficulty]) {
     return res.status(400).json({ error: 'Invalid difficulty' });
   }
-
   res.json({ words: wordBanks[difficulty] });
 });
-
 
 router.get('/rooms', optionalAuth, async (req, res) => {
   try {
@@ -37,13 +33,11 @@ router.get('/rooms', optionalAuth, async (req, res) => {
   }
 });
 
-
 router.post('/rooms', authenticateToken, async (req, res) => {
   const { difficulty } = req.body;
   const userId = req.user.id;
 
   try {
-
     let roomCode;
     let exists = true;
     while (exists) {
@@ -56,7 +50,6 @@ router.post('/rooms', authenticateToken, async (req, res) => {
     }
 
     const roomId = crypto.randomUUID();
-
     await pool.query(
       'INSERT INTO game_rooms (id, room_code, created_by, difficulty) VALUES ($1, $2, $3, $4)',
       [roomId, roomCode, userId, difficulty]
@@ -69,14 +62,12 @@ router.post('/rooms', authenticateToken, async (req, res) => {
   }
 });
 
-
 router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
   const { roomId } = req.params;
   const { playerName } = req.body;
   const userId = req.user.id;
 
   try {
-
     const rooms = await pool.query(
       'SELECT * FROM game_rooms WHERE id = $1 AND status = $2',
       [roomId, 'waiting']
@@ -85,7 +76,6 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
     if (rooms.rows.length === 0) {
       return res.status(404).json({ error: 'Room not found or not available' });
     }
-
 
     const participantCount = await pool.query(
       'SELECT COUNT(*) as count FROM game_participants WHERE room_id = $1',
@@ -96,7 +86,6 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Room is full' });
     }
 
-
     const existing = await pool.query(
       'SELECT id FROM game_participants WHERE room_id = $1 AND user_id = $2',
       [roomId, userId]
@@ -106,13 +95,11 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Already joined this room' });
     }
 
-
     const participantId = crypto.randomUUID();
     await pool.query(
       'INSERT INTO game_participants (id, room_id, user_id, player_name) VALUES ($1, $2, $3, $4)',
       [participantId, roomId, userId, playerName]
     );
-
 
     const updatedParticipants = await pool.query(`
       SELECT gp.id, gp.player_name, gp.is_ready, gp.user_id
@@ -131,7 +118,6 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
   }
 });
 
-
 router.patch('/rooms/:roomId/ready', authenticateToken, async (req, res) => {
   const { roomId } = req.params;
   const { is_ready } = req.body;
@@ -142,7 +128,6 @@ router.patch('/rooms/:roomId/ready', authenticateToken, async (req, res) => {
       'UPDATE game_participants SET is_ready = $1 WHERE room_id = $2 AND user_id = $3',
       [is_ready, roomId, userId]
     );
-
 
     const updatedParticipants = await pool.query(`
       SELECT gp.id, gp.player_name, gp.is_ready, gp.user_id
@@ -161,13 +146,11 @@ router.patch('/rooms/:roomId/ready', authenticateToken, async (req, res) => {
   }
 });
 
-
 router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
   const { roomId } = req.params;
   const userId = req.user.id;
 
   try {
-
     const rooms = await pool.query(
       'SELECT created_by FROM game_rooms WHERE id = $1',
       [roomId]
@@ -176,7 +159,6 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
     if (rooms.rows.length === 0 || rooms.rows[0].created_by !== userId) {
       return res.status(403).json({ error: 'Only room creator can start the game' });
     }
-
 
     const participants = await pool.query(`
       SELECT COUNT(*)::int AS total,
@@ -189,12 +171,10 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'All players must be ready and at least 2 players required' });
     }
 
-
     await pool.query(
       'UPDATE game_rooms SET status = $1, started_at = NOW() WHERE id = $2',
       ['active', roomId]
     );
-
 
     const roomData = await pool.query(
       'SELECT difficulty FROM game_rooms WHERE id = $1',
@@ -202,16 +182,10 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
     );
 
     const difficulty = roomData.rows[0]?.difficulty || 'easy';
-
-
     res.json({ success: true });
 
-
     const io = req.app.get('io');
-
-
     io.to(roomId).emit('gameStarting');
-
 
     setTimeout(() => {
       io.to(roomId).emit('countdown', { countdown: 3 });
@@ -224,7 +198,6 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
     setTimeout(() => {
       io.to(roomId).emit('countdown', { countdown: 1 });
     }, 2100);
-
 
     setTimeout(() => {
       const words = wordBanks[difficulty] || wordBanks.easy;
@@ -246,19 +219,16 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
   }
 });
 
-
 router.post('/rooms/:roomId/answer', authenticateToken, async (req, res) => {
   const { roomId } = req.params;
   const { word, isCorrect, points } = req.body;
   const userId = req.user.id;
 
   try {
-
     await pool.query(
       'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
       [roomId, userId, 'answer_submitted', word, isCorrect, points]
     );
-
 
     if (isCorrect) {
       await pool.query(
@@ -278,7 +248,6 @@ router.post('/rooms/:roomId/answer', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 router.get('/rooms/:roomId', optionalAuth, async (req, res) => {
   const { roomId } = req.params;
@@ -313,7 +282,6 @@ router.get('/rooms/:roomId', optionalAuth, async (req, res) => {
   }
 });
 
-
 router.get('/participants/:roomId', optionalAuth, async (req, res) => {
   const { roomId } = req.params;
 
@@ -333,7 +301,6 @@ router.get('/participants/:roomId', optionalAuth, async (req, res) => {
   }
 });
 
-
 router.put('/participants/:participantId', authenticateToken, async (req, res) => {
   const { participantId } = req.params;
   const { score, current_streak } = req.body;
@@ -351,20 +318,17 @@ router.put('/participants/:participantId', authenticateToken, async (req, res) =
   }
 });
 
-
 router.post('/update-db', optionalAuth, async (req, res) => {
   const { roomId, userId, points, streak } = req.body;
-  
+
   try {
     const numPoints = Number(points) || 0;
     const numStreak = Number(streak) || 0;
-    
 
     await pool.query(
       'UPDATE game_participants SET score = score + $1, current_streak = $2 WHERE room_id = $3 AND user_id = $4',
       [numPoints, numStreak, roomId, userId]
     );
-    
 
     const participants = await pool.query(`
       SELECT gp.*, COALESCE(p.username, gp.player_name) as player_name
@@ -373,13 +337,12 @@ router.post('/update-db', optionalAuth, async (req, res) => {
       WHERE gp.room_id = $1
       ORDER BY gp.score DESC
     `, [roomId]);
-    
 
     const io = req.app.get('io');
     if (io) {
       io.to(roomId).emit('participantsUpdated', participants.rows);
     }
-    
+
     res.json({ success: true, participants: participants.rows });
   } catch (error) {
     console.error('Update score error:', error);
@@ -387,13 +350,12 @@ router.post('/update-db', optionalAuth, async (req, res) => {
   }
 });
 
-
 router.post('/events', authenticateToken, async (req, res) => {
-  const { 
-    roomId, room_id, 
-    userId, user_id, 
-    word, current_word, 
-    isCorrect, is_correct, 
+  const {
+    roomId, room_id,
+    userId, user_id,
+    word, current_word,
+    isCorrect, is_correct,
     points, points_earned,
     event_type
   } = req.body;

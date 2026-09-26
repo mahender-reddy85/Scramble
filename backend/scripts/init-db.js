@@ -4,7 +4,6 @@ async function initDatabase() {
   try {
     console.log('Initializing database...');
 
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -16,7 +15,6 @@ async function initDatabase() {
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
-
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS game_rooms (
@@ -32,7 +30,6 @@ async function initDatabase() {
       );
     `);
 
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS game_participants (
         id VARCHAR(100) PRIMARY KEY,
@@ -46,7 +43,6 @@ async function initDatabase() {
         joined_at TIMESTAMP DEFAULT NOW()
       );
     `);
-
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS game_events (

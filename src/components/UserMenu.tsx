@@ -41,7 +41,7 @@ export default function UserMenu() {
     try {
       const response = await apiClient.get('/api/auth/me');
       setUser(response.user);
-    } catch (error) {
+    } catch {
       localStorage.removeItem('token');
     } finally {
       setIsLoading(false);
@@ -79,7 +79,7 @@ export default function UserMenu() {
   };
 
   if (isLoading) {
-    return null; 
+    return null;
   }
 
   return (

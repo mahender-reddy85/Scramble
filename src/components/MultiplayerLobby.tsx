@@ -5,17 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { apiClient } from '@/integrations/apiClient';
+import { Player } from '@/types';
 import MultiplayerGame from './MultiplayerGame';
 
 interface MultiplayerLobbyProps {
   onBack: () => void;
-}
-
-interface Player {
-  id: string;
-  player_name: string;
-  is_ready: boolean;
-  user_id: string;
 }
 
 interface ErrorResponse {
@@ -50,7 +44,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setCurrentUserId(payload.id || payload.user?.id || 'anonymous');
-      } catch (error) {
+      } catch {
         setCurrentUserId('anonymous');
       }
     }
@@ -112,7 +106,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       const response = await apiClient.get(`/api/game/rooms/${roomId}`);
       setPlayers(response.participants || []);
       setCreatorName(response.room.creator_name || 'Unknown');
-    } catch (error) {
+    } catch {
       toast.error('Failed to load room data. Please refresh the page.');
     }
   }, [roomId]);
@@ -170,7 +164,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
     try {
       const roomsResponse = await apiClient.get('/api/game/rooms');
-      const room = roomsResponse.rooms.find((r) => r.room_code === roomCode);
+      const room = roomsResponse.rooms.find((r: { room_code: string }) => r.room_code === roomCode);
 
       if (!room) {
         toast.error('Room not found');
@@ -236,11 +230,11 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
   if (gameStarted && roomId) {
     return (
-      <MultiplayerGame 
-        roomId={roomId} 
+      <MultiplayerGame
+        roomId={roomId}
         difficulty={difficulty}
         initialWord={initialWord}
-          socket={socketRef.current}
+        socket={socketRef.current}
         onExit={() => {
           setGameStarted(false);
           setRoomId(null);
@@ -323,7 +317,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
             <Button
               onClick={handleStartGame}
               className="flex-1 rounded-xl"
-              disabled={players.length < 2 || !players.every(p => p.is_ready) || countdown !== null && countdown > 0}
+              disabled={players.length < 2 || !players.every(p => p.is_ready) || (countdown !== null && countdown > 0)}
             >
               Start Game
             </Button>
@@ -380,7 +374,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           placeholder="Enter your name"
           className="rounded-xl"
         />
-        
+
         <div className="space-y-3">
           <Button
             onClick={handleCreateRoom}
@@ -389,7 +383,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           >
             {isCreating ? 'Creating...' : 'Create Room'}
           </Button>
-          
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-border" />
@@ -398,7 +392,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
               <span className="bg-card px-2 text-muted-foreground">Or</span>
             </div>
           </div>
-          
+
           <Input
             type="text"
             value={roomCode}
@@ -407,7 +401,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
             className="rounded-xl"
             maxLength={4}
           />
-          
+
           <Button
             onClick={handleJoinRoom}
             disabled={isJoining}

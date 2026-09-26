@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -8,7 +7,6 @@ import gameRoutes from './routes/game.js';
 export function createApp(io = null) {
   const app = express();
 
-
   if (io) {
     app.set('io', io);
     app.use((req, _res, next) => {
@@ -16,7 +14,6 @@ export function createApp(io = null) {
       next();
     });
   } else {
-
     const ioStub = { to: () => ({ emit: () => {} }) };
     app.set('io', ioStub);
     app.use((req, _res, next) => {
@@ -28,10 +25,9 @@ export function createApp(io = null) {
   app.use(cors());
   app.use(express.json());
 
-
   const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000, 
+    max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
@@ -40,7 +36,7 @@ export function createApp(io = null) {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100, 
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
@@ -49,7 +45,7 @@ export function createApp(io = null) {
 
   const gameLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 200, 
+    max: 200,
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === 'test',
@@ -57,16 +53,12 @@ export function createApp(io = null) {
   });
 
   app.use('/api/', globalLimiter);
-
-
   app.use('/api/auth', authLimiter, authRoutes);
   app.use('/api/game', gameLimiter, gameRoutes);
-
 
   app.get('/', (_req, res) => {
     res.json({ message: 'Scramble Game API Server', status: 'running' });
   });
-
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
