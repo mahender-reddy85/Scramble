@@ -130,8 +130,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('submit-answer', async (data) => {
-    const { roomId, word } = data;
     const userId = socket.userId;
+    if (!userId) {
+      socket.emit('error', { message: 'Unauthorized' });
+      return;
+    }
+    const { roomId, word } = data;
     const roomState = getRoomState(roomId);
     const currentWord = roomState.currentWord;
     const isCorrect = Boolean(currentWord && word && (word.toUpperCase() === currentWord.toUpperCase()));
@@ -216,9 +220,9 @@ io.on('connection', (socket) => {
               });
 
               io.to(roomId).emit('newWord', {
-                word: wordItem.word,
-                hint: wordItem.hint,
                 scrambled: scrambled,
+                hint: wordItem.hint,
+                length: wordItem.word.length,
                 round: currentRound + 1
               });
             } else {
@@ -239,7 +243,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('toggle-ready', async (data) => {
-    const { roomId, userId, is_ready } = data;
+    const userId = socket.userId;
+    if (!userId) {
+      socket.emit('error', { message: 'Unauthorized' });
+      return;
+    }
+    const { roomId, is_ready } = data;
 
     try {
       await pool.query(
@@ -263,7 +272,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player-finished', async (data) => {
-    const { roomId, userId } = data;
+    const userId = socket.userId;
+    if (!userId) {
+      socket.emit('error', { message: 'Unauthorized' });
+      return;
+    }
+    const { roomId } = data;
 
     try {
       const roomState = getRoomState(roomId);

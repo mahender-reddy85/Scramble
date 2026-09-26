@@ -230,9 +230,9 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
       });
 
       io.to(roomId).emit('newWord', {
-        word: wordItem.word,
-        hint: wordItem.hint,
         scrambled: scrambled,
+        hint: wordItem.hint,
+        length: wordItem.word.length,
         round: 1
       });
     }, 3100);

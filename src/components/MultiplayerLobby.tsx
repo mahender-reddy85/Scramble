@@ -35,7 +35,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [creatorName, setCreatorName] = useState<string>('');
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [initialWord, setInitialWord] = useState<{ word: string; hint: string; scrambled: string } | null>(null);
+  const [initialWord, setInitialWord] = useState<{ hint: string; scrambled: string; length?: number } | null>(null);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       setCountdown(data.countdown);
     });
 
-    socketRef.current.on('newWord', (data: { word: string; hint: string; scrambled: string }) => {
+    socketRef.current.on('newWord', (data: { hint: string; scrambled: string; length?: number }) => {
       setInitialWord(data);
       setGameStarted(true);
       setGameStarting(false);
