@@ -134,10 +134,10 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
             playSound('correct');
             stopTimer();
             setIsActive(false);
-            setFeedback({ message: `Correct! +${data.points} points`, type: 'success' });
+            setFeedback({ message: `Correct Answer: +${data.points} points`, type: 'success' });
           } else {
             playSound('wrong');
-            setFeedback({ message: 'Wrong answer, try again!', type: 'error' });
+            setFeedback({ message: 'Incorrect answer. Please try again!', type: 'error' });
             setAnswer('');
             setTimeout(() => {
               setFeedback({ message: '', type: '' });
