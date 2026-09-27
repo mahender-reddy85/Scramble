@@ -56,12 +56,7 @@ async function endGame(roomId, socketIo) {
   } catch (err) {}
 }
 
-async function ensureSchema() {
-  try {
-    await pool.query('ALTER TABLE game_rooms ADD COLUMN IF NOT EXISTS current_round INTEGER DEFAULT 1;');
-  } catch (err) {}
-}
-ensureSchema();
+
 
 io.on('connection', (socket) => {
 
@@ -449,6 +444,17 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       socket.emit('waiting-for-others');
+    }
+  });
+
+  socket.on('disconnecting', () => {
+    for (const roomId of socket.rooms) {
+      if (roomId !== socket.id) {
+        const roomSize = io.sockets.adapter.rooms.get(roomId)?.size;
+        if (roomSize === 1) {
+          deleteRoomState(roomId);
+        }
+      }
     }
   });
 
