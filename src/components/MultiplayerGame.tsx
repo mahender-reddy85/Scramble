@@ -133,6 +133,7 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
           if (data.isCorrect) {
             playSound('correct');
             stopTimer();
+            setIsActive(false);
             setFeedback({ message: `Correct! +${data.points} points`, type: 'success' });
           } else {
             playSound('wrong');
@@ -173,6 +174,12 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
 
       socket.on('newWord', handleNewWord);
       socket.on('answer-submitted', handleAnswerSubmitted);
+      socket.on('countdown', (data: { countdown: number }) => {
+        setCountdown(data.countdown);
+        setShowCountdown(true);
+        setIsActive(false);
+        setFeedback({ message: '', type: '' });
+      });
       socket.on('waiting-for-others', handleWaitingForOthers);
       socket.on('game-ended', handleGameEnded);
       socket.on('gameEnded', handleGameEnded);

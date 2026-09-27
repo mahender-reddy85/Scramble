@@ -257,30 +257,43 @@ io.on('connection', (socket) => {
       const currentRound = roomState.currentRound || 1;
 
       if (currentRound < GAME_CONFIG.rounds) {
-        const words = wordBanks[difficulty] || wordBanks.easy;
-        const randomIndex = Math.floor(Math.random() * words.length);
-        const wordItem = words[randomIndex];
-        const scrambled = scrambleWord(wordItem.word);
-        const nextRound = currentRound + 1;
+        // Start countdown for next round
+        io.to(roomId).emit('countdown', { countdown: 3 });
+        
+        setTimeout(() => {
+          io.to(roomId).emit('countdown', { countdown: 2 });
+        }, 1000);
 
-        try {
-          await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
-        } catch {}
+        setTimeout(() => {
+          io.to(roomId).emit('countdown', { countdown: 1 });
+        }, 2000);
 
-        setRoomState(roomId, {
-          currentWord: wordItem.word,
-          currentHint: wordItem.hint,
-          currentRound: nextRound,
-          locked: false,
-          roundStartedAt: Date.now()
-        });
+        setTimeout(async () => {
+          const words = wordBanks[difficulty] || wordBanks.easy;
+          const randomIndex = Math.floor(Math.random() * words.length);
+          const wordItem = words[randomIndex];
+          const scrambled = scrambleWord(wordItem.word);
+          const nextRound = currentRound + 1;
 
-        io.to(roomId).emit('newWord', {
-          scrambled: scrambled,
-          hint: wordItem.hint,
-          length: wordItem.word.length,
-          round: nextRound
-        });
+          try {
+            await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
+          } catch {}
+
+          setRoomState(roomId, {
+            currentWord: wordItem.word,
+            currentHint: wordItem.hint,
+            currentRound: nextRound,
+            locked: false,
+            roundStartedAt: Date.now()
+          });
+
+          io.to(roomId).emit('newWord', {
+            scrambled: scrambled,
+            hint: wordItem.hint,
+            length: wordItem.word.length,
+            round: nextRound
+          });
+        }, 3000);
       } else {
         await endGame(roomId, io);
         roomState.locked = false;
