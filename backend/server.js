@@ -236,17 +236,6 @@ io.on('connection', (socket) => {
       });
 
       if (isCorrect) {
-        // Start countdown for next round immediately after correct answer (only for this player)
-        socket.emit('countdown', { countdown: 3 });
-        
-        setTimeout(() => {
-          socket.emit('countdown', { countdown: 2 });
-        }, 1000);
-
-        setTimeout(() => {
-          socket.emit('countdown', { countdown: 1 });
-        }, 2000);
-
         setTimeout(async () => {
           try {
             if (currentRound < GAME_CONFIG.rounds) {
@@ -292,7 +281,7 @@ io.on('connection', (socket) => {
           } catch (error) {
             console.error('Error sending next word:', error);
           }
-        }, 3000);
+        }, 2000);
       }
     } catch (error) {
       console.error('Submit answer error:', error);
@@ -331,17 +320,6 @@ io.on('connection', (socket) => {
       const currentRound = playerState.currentRound || 1;
 
       if (currentRound < GAME_CONFIG.rounds) {
-        // Start countdown for next round (only for this player)
-        socket.emit('countdown', { countdown: 3 });
-        
-        setTimeout(() => {
-          socket.emit('countdown', { countdown: 2 });
-        }, 1000);
-
-        setTimeout(() => {
-          socket.emit('countdown', { countdown: 1 });
-        }, 2000);
-
         setTimeout(async () => {
           const words = wordBanks[difficulty] || wordBanks.easy;
           const randomIndex = Math.floor(Math.random() * words.length);
@@ -362,7 +340,7 @@ io.on('connection', (socket) => {
             length: wordItem.word.length,
             round: nextRound
           });
-        }, 3000);
+        }, 500);
       } else {
         // Player finished all rounds due to timeout
         setPlayerState(roomId, userId, { finished: true });

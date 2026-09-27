@@ -116,8 +116,8 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
         setAnswer('');
         setFeedback({ message: '', type: '' });
         setTimeLeft(20);
-        setShowCountdown(true);
-        setCountdown(3);
+        setShowCountdown(false);
+        setIsActive(true);
         setShowHint(false);
         setHintUsed(false);
         if (data.round) setRoundCount(data.round);
@@ -135,14 +135,16 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
             stopTimer();
             setIsActive(false);
             setFeedback({ message: `Correct Answer: +${data.points} points`, type: 'success' });
+            console.log('Feedback set:', `Correct Answer: +${data.points} points`);
           } else {
             playSound('wrong');
             setFeedback({ message: 'Incorrect answer. Please try again!', type: 'error' });
+            console.log('Feedback set:', 'Incorrect answer. Please try again!');
             setAnswer('');
             setTimeout(() => {
               setFeedback({ message: '', type: '' });
               inputRef.current?.focus();
-            }, 1500);
+            }, 2000);
           }
         }
       };
@@ -174,12 +176,6 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
 
       socket.on('newWord', handleNewWord);
       socket.on('answer-submitted', handleAnswerSubmitted);
-      socket.on('countdown', (data: { countdown: number }) => {
-        setCountdown(data.countdown);
-        setShowCountdown(true);
-        setIsActive(false);
-        setFeedback({ message: '', type: '' });
-      });
       socket.on('waiting-for-others', handleWaitingForOthers);
       socket.on('game-ended', handleGameEnded);
       socket.on('gameEnded', handleGameEnded);

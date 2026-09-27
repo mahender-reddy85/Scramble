@@ -203,18 +203,6 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
     const io = req.app.get('io');
     io.to(roomId).emit('gameStarting');
 
-    setTimeout(() => {
-      io.to(roomId).emit('countdown', { countdown: 3 });
-    }, 100);
-
-    setTimeout(() => {
-      io.to(roomId).emit('countdown', { countdown: 2 });
-    }, 1100);
-
-    setTimeout(() => {
-      io.to(roomId).emit('countdown', { countdown: 1 });
-    }, 2100);
-
     setTimeout(async () => {
       const words = wordBanks[difficulty] || wordBanks.easy;
       
@@ -248,7 +236,7 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
           }
         });
       }
-    }, 3100);
+    }, 500);
   } catch (error) {
     console.error('Start game error:', error);
     res.status(500).json({ error: 'Server error' });
