@@ -6,7 +6,7 @@ import pool from './db.js';
 import { createApp } from './app.js';
 import { wordBanks, scrambleWord } from './utils/wordBanks.js';
 import { GAME_CONFIG } from './utils/gameConfig.js';
-import { getRoomState, setRoomState, deleteRoomState } from './utils/roomState.js';
+import { getRoomState, setRoomState, deleteRoomState, getPlayerState, setPlayerState } from './utils/roomState.js';
 import { isOriginAllowed } from './utils/cors.js';
 
 dotenv.config();
@@ -154,8 +154,8 @@ io.on('connection', (socket) => {
     }
 
     const { roomId, word } = data;
-    const roomState = getRoomState(roomId);
-    const currentWord = roomState.currentWord;
+    const playerState = getPlayerState(roomId, userId);
+    const currentWord = playerState.currentWord;
     const isCorrect = Boolean(
       currentWord &&
       word &&
@@ -167,7 +167,7 @@ io.on('connection', (socket) => {
       if (roomData.rows.length === 0) return;
 
       const difficulty = roomData.rows[0].difficulty || 'easy';
-      const currentRound = roomState.currentRound || 1;
+      const currentRound = playerState.currentRound || 1;
       let pointsToAward = 0;
 
       if (isCorrect) {
@@ -182,8 +182,8 @@ io.on('connection', (socket) => {
         const streakBonus = newStreak * GAME_CONFIG.streakBonusMultiplier;
 
         let timeBonus = 0;
-        if (roomState.roundStartedAt) {
-          const elapsedSeconds = Math.floor((Date.now() - roomState.roundStartedAt) / 1000);
+        if (playerState.roundStartedAt) {
+          const elapsedSeconds = Math.floor((Date.now() - playerState.roundStartedAt) / 1000);
           timeBonus = Math.max(0, Math.min(GAME_CONFIG.roundTime, GAME_CONFIG.roundTime - elapsedSeconds));
         }
 
@@ -236,18 +236,15 @@ io.on('connection', (socket) => {
       });
 
       if (isCorrect) {
-        if (roomState.locked) return;
-        roomState.locked = true;
-
-        // Start countdown for next round immediately after correct answer
-        io.to(roomId).emit('countdown', { countdown: 3 });
+        // Start countdown for next round immediately after correct answer (only for this player)
+        socket.emit('countdown', { countdown: 3 });
         
         setTimeout(() => {
-          io.to(roomId).emit('countdown', { countdown: 2 });
+          socket.emit('countdown', { countdown: 2 });
         }, 1000);
 
         setTimeout(() => {
-          io.to(roomId).emit('countdown', { countdown: 1 });
+          socket.emit('countdown', { countdown: 1 });
         }, 2000);
 
         setTimeout(async () => {
@@ -259,32 +256,41 @@ io.on('connection', (socket) => {
               const scrambled = scrambleWord(wordItem.word);
               const nextRound = currentRound + 1;
 
-              try {
-                await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
-              } catch {}
-
-              setRoomState(roomId, {
+              setPlayerState(roomId, userId, {
                 currentWord: wordItem.word,
                 currentHint: wordItem.hint,
                 currentRound: nextRound,
-                locked: false,
                 roundStartedAt: Date.now()
               });
 
-              io.to(roomId).emit('newWord', {
+              socket.emit('newWord', {
                 scrambled: scrambled,
                 hint: wordItem.hint,
                 length: wordItem.word.length,
                 round: nextRound
               });
             } else {
-              const winner = participantsList[0];
-              io.to(roomId).emit('gameEnded', { winner, participants: participantsList });
-              roomState.locked = false;
+              // Player finished all rounds
+              setPlayerState(roomId, userId, { finished: true });
+              const roomState = getRoomState(roomId);
+              roomState.finishedPlayers.add(userId);
+              
+              // Check if all players finished
+              const allParticipants = await pool.query('SELECT user_id FROM game_participants WHERE room_id = $1', [roomId]);
+              const totalPlayers = allParticipants.rows.length;
+              
+              if (roomState.finishedPlayers.size >= totalPlayers) {
+                // All players finished, end game
+                const winner = participantsList[0];
+                io.to(roomId).emit('gameEnded', { winner, participants: participantsList });
+                deleteRoomState(roomId);
+              } else {
+                // Send waiting state to this player
+                socket.emit('waiting-for-others');
+              }
             }
           } catch (error) {
             console.error('Error sending next word:', error);
-            roomState.locked = false;
           }
         }, 3000);
       }
@@ -296,30 +302,44 @@ io.on('connection', (socket) => {
 
   socket.on('round-timeout', async (data) => {
     const { roomId } = data;
-    const roomState = getRoomState(roomId);
-    if (roomState.locked) return;
-    roomState.locked = true;
+    let userId = socket.userId;
+    if (!userId && data?.token) {
+      try {
+        const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
+        userId = decoded.id;
+        socket.userId = userId;
+      } catch (err) {
+        console.warn('Fallback token verification failed:', err.message);
+      }
+    }
+    if (!userId && data?.userId) {
+      userId = data.userId;
+      socket.userId = userId;
+    }
+    if (!userId) {
+      socket.emit('error', { message: 'Unauthorized' });
+      return;
+    }
+
+    const playerState = getPlayerState(roomId, userId);
 
     try {
       const roomData = await pool.query('SELECT difficulty FROM game_rooms WHERE id = $1', [roomId]);
-      if (roomData.rows.length === 0) {
-        roomState.locked = false;
-        return;
-      }
+      if (roomData.rows.length === 0) return;
 
       const difficulty = roomData.rows[0].difficulty || 'easy';
-      const currentRound = roomState.currentRound || 1;
+      const currentRound = playerState.currentRound || 1;
 
       if (currentRound < GAME_CONFIG.rounds) {
-        // Start countdown for next round
-        io.to(roomId).emit('countdown', { countdown: 3 });
+        // Start countdown for next round (only for this player)
+        socket.emit('countdown', { countdown: 3 });
         
         setTimeout(() => {
-          io.to(roomId).emit('countdown', { countdown: 2 });
+          socket.emit('countdown', { countdown: 2 });
         }, 1000);
 
         setTimeout(() => {
-          io.to(roomId).emit('countdown', { countdown: 1 });
+          socket.emit('countdown', { countdown: 1 });
         }, 2000);
 
         setTimeout(async () => {
@@ -329,19 +349,14 @@ io.on('connection', (socket) => {
           const scrambled = scrambleWord(wordItem.word);
           const nextRound = currentRound + 1;
 
-          try {
-            await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
-          } catch {}
-
-          setRoomState(roomId, {
+          setPlayerState(roomId, userId, {
             currentWord: wordItem.word,
             currentHint: wordItem.hint,
             currentRound: nextRound,
-            locked: false,
             roundStartedAt: Date.now()
           });
 
-          io.to(roomId).emit('newWord', {
+          socket.emit('newWord', {
             scrambled: scrambled,
             hint: wordItem.hint,
             length: wordItem.word.length,
@@ -349,12 +364,34 @@ io.on('connection', (socket) => {
           });
         }, 3000);
       } else {
-        await endGame(roomId, io);
-        roomState.locked = false;
+        // Player finished all rounds due to timeout
+        setPlayerState(roomId, userId, { finished: true });
+        const roomState = getRoomState(roomId);
+        roomState.finishedPlayers.add(userId);
+        
+        // Check if all players finished
+        const allParticipants = await pool.query('SELECT user_id FROM game_participants WHERE room_id = $1', [roomId]);
+        const totalPlayers = allParticipants.rows.length;
+        
+        if (roomState.finishedPlayers.size >= totalPlayers) {
+          // All players finished, end game
+          const participants = await pool.query(`
+            SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
+            FROM game_participants gp
+            LEFT JOIN users p ON gp.user_id = p.id
+            WHERE gp.room_id = $1
+            ORDER BY gp.score DESC
+          `, [roomId]);
+          const winner = participants.rows[0];
+          io.to(roomId).emit('gameEnded', { winner, participants: participants.rows });
+          deleteRoomState(roomId);
+        } else {
+          // Send waiting state to this player
+          socket.emit('waiting-for-others');
+        }
       }
     } catch (error) {
       console.error('Error handling round timeout:', error);
-      roomState.locked = false;
     }
   });
 

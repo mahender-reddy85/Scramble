@@ -4,7 +4,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import crypto from 'crypto';
 import { wordBanks, scrambleWord } from '../utils/wordBanks.js';
 import { GAME_CONFIG } from '../utils/gameConfig.js';
-import { getRoomState, setRoomState } from '../utils/roomState.js';
+import { getRoomState, setRoomState, getPlayerState, setPlayerState } from '../utils/roomState.js';
 
 const router = express.Router();
 
@@ -215,26 +215,39 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
       io.to(roomId).emit('countdown', { countdown: 1 });
     }, 2100);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const words = wordBanks[difficulty] || wordBanks.easy;
-      const randomIndex = Math.floor(Math.random() * words.length);
-      const wordItem = words[randomIndex];
-      const scrambled = scrambleWord(wordItem.word);
-
-      setRoomState(roomId, {
-        currentWord: wordItem.word,
-        currentHint: wordItem.hint,
-        currentRound: 1,
-        locked: false,
-        roundStartedAt: Date.now()
-      });
-
-      io.to(roomId).emit('newWord', {
-        scrambled: scrambled,
-        hint: wordItem.hint,
-        length: wordItem.word.length,
-        round: 1
-      });
+      
+      // Get all participants in the room
+      const participants = await pool.query('SELECT user_id FROM game_participants WHERE room_id = $1', [roomId]);
+      
+      // Send different random words to each player
+      const room = io.sockets.adapter.rooms.get(roomId);
+      if (room) {
+        room.forEach(socketId => {
+          const socket = io.sockets.sockets.get(socketId);
+          if (socket && socket.userId) {
+            const randomIndex = Math.floor(Math.random() * words.length);
+            const wordItem = words[randomIndex];
+            const scrambled = scrambleWord(wordItem.word);
+            
+            setPlayerState(roomId, socket.userId, {
+              currentWord: wordItem.word,
+              currentHint: wordItem.hint,
+              currentRound: 1,
+              roundStartedAt: Date.now(),
+              finished: false
+            });
+            
+            socket.emit('newWord', {
+              scrambled: scrambled,
+              hint: wordItem.hint,
+              length: wordItem.word.length,
+              round: 1
+            });
+          }
+        });
+      }
     }, 3100);
   } catch (error) {
     console.error('Start game error:', error);
