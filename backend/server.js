@@ -138,6 +138,8 @@ io.on('connection', (socket) => {
 
     const { roomId, word } = data;
     const playerState = getPlayerState(roomId, userId);
+    const currentRound = playerState.currentRound || 1;
+    if (playerState.transitioningRound === currentRound) return;
     const currentWord = playerState.currentWord;
     const isCorrect = Boolean(
       currentWord &&
@@ -232,7 +234,8 @@ io.on('connection', (socket) => {
                 currentWord: wordItem.word,
                 currentHint: wordItem.hint,
                 currentRound: nextRound,
-                roundStartedAt: Date.now()
+                roundStartedAt: Date.now(),
+            transitioningRound: null
               });
 
               socket.emit('newWord', {
@@ -309,7 +312,8 @@ io.on('connection', (socket) => {
             currentWord: wordItem.word,
             currentHint: wordItem.hint,
             currentRound: nextRound,
-            roundStartedAt: Date.now()
+            roundStartedAt: Date.now(),
+            transitioningRound: null
           });
 
           socket.emit('newWord', {
@@ -460,3 +464,4 @@ const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
 });
+
