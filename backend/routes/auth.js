@@ -46,7 +46,6 @@ router.post('/register', [
 
     return res.status(201).json({ token, user: { id: userId, username } });
   } catch (err) {
-    console.error("Registration error:", err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -87,7 +86,6 @@ router.post('/login', [
 
     return res.json({ token, user: { id: user.id, username: user.username } });
   } catch (err) {
-    console.error("Login error:", err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -105,7 +103,6 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     return res.json({ user: result.rows[0] });
   } catch (err) {
-    console.error("Get user error:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });
@@ -140,7 +137,6 @@ router.put('/profile', authenticateToken, [
 
     return res.json({ message: 'Profile updated successfully' });
   } catch (err) {
-    console.error("Profile update error:", err);
     return res.status(500).json({ error: 'Server error' });
   }
 });

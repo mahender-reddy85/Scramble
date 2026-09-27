@@ -75,7 +75,6 @@ export default function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     });
 
     socketRef.current.on('connect_error', (err) => {
-      console.warn('Socket connection error:', err.message);
     });
 
     socketRef.current.on('participantsUpdated', (updatedPlayers: Player[]) => {

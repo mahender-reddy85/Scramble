@@ -360,7 +360,6 @@ router.put('/participants/:participantId', authenticateToken, async (req, res) =
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Update participant error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -392,7 +391,6 @@ router.post('/update-db', optionalAuth, async (req, res) => {
 
     res.json({ success: true, participants: participants.rows });
   } catch (error) {
-    console.error('Update score error:', error);
     res.status(500).json({ error: 'Failed to update score' });
   }
 });
@@ -425,7 +423,6 @@ router.post('/events', authenticateToken, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Log event error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -442,7 +439,6 @@ router.patch('/rooms/:roomId', authenticateToken, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Update room status error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

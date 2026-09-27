@@ -116,7 +116,7 @@ io.on('connection', (socket) => {
         });
       }
     } catch (error) {
-      console.error('Join room error:', error);
+
       socket.emit('error', { message: 'Failed to join room' });
     }
   });
@@ -268,7 +268,7 @@ io.on('connection', (socket) => {
         }, 2000);
       }
     } catch (error) {
-      console.error('Submit answer error:', error);
+
       socket.emit('error', { message: 'Failed to submit answer' });
     }
   });
