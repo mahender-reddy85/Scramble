@@ -67,13 +67,57 @@ The game leverages a hybrid architecture:
 
 All game configuration rules—including the exact number of rounds, round time limits, and points—are centralized in `backend/utils/gameConfig.js`.
 
+### Current Deployment Model & Horizontal Scaling
+
+The current implementation intentionally keeps ephemeral game state—such as active room state, player round state, current words, and round timing—in an in-memory Node.js `Map`.
+
+This provides a simple and fast architecture for the current single-instance deployment model. PostgreSQL remains the persistent source of truth for users, rooms, participants, scores, and game events, while the in-memory state handles high-frequency transient gameplay state.
+
+This design is **not horizontally scalable as-is**. If multiple backend instances are introduced behind a load balancer, each instance would maintain its own independent in-memory room state. Players connected to different instances could therefore observe inconsistent game state.
+
+### Future Horizontal Scaling Path
+
+If the application needs to scale to multiple backend instances, the in-memory state can be replaced with a shared Redis-based state layer:
+
+- **Redis:** Store ephemeral room and player game state shared across backend instances.
+- **Socket.IO Redis Adapter:** Synchronize Socket.IO room broadcasts between backend instances.
+- **PostgreSQL:** Continue storing durable application and game data.
+
+The architecture is therefore intentionally optimized for the current scale while keeping a clear migration path toward a distributed deployment:
+
+```text
+Current:
+
+Clients
+   │
+   ▼
+Node.js + Socket.IO
+   │
+   ├── In-memory Map
+   │      └── Ephemeral game state
+   │
+   └── PostgreSQL
+          └── Persistent data
+
+
+Future:
+
+                    ┌── Node.js Instance A ──┐
+Clients ── Load ────┤                         ├── Redis
+                    └── Node.js Instance B ──┘
+                              │
+                              └── PostgreSQL
+```
+
+Redis is intentionally not introduced in the current architecture because the application does not currently require horizontal scaling. Adding distributed infrastructure before it is needed would increase operational complexity without providing a meaningful benefit at the current scale.
+
 ## API
 
 For detailed API and Socket payload documentation, refer to the source code interfaces located in `shared/socket.ts` and `src/types.ts`.
 
 ## Testing
 
-The backend includes a comprehensive Jest test suite that uses mocked databases to run blazingly fast.
+The backend includes a focused Jest test suite covering authentication, game REST routes, and core scoring logic using mocked databases.
 
 ```bash
 cd backend

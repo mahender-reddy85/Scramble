@@ -217,6 +217,8 @@ io.on('connection', (socket) => {
       });
 
       if (isCorrect) {
+        if (playerState.transitioningRound === currentRound) return;
+        playerState.transitioningRound = currentRound;
         setTimeout(async () => {
           try {
             if (currentRound < GAME_CONFIG.rounds) {
@@ -294,6 +296,8 @@ io.on('connection', (socket) => {
       const currentRound = playerState.currentRound || 1;
 
       if (currentRound < GAME_CONFIG.rounds) {
+        if (playerState.transitioningRound === currentRound) return;
+        playerState.transitioningRound = currentRound;
         setTimeout(async () => {
           const words = wordBanks[difficulty] || wordBanks.easy;
           const randomIndex = Math.floor(Math.random() * words.length);
