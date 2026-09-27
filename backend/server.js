@@ -234,49 +234,6 @@ io.on('connection', (socket) => {
         points: pointsToAward,
         participants: participantsList
       });
-
-      if (isCorrect) {
-        if (roomState.locked) return;
-        roomState.locked = true;
-
-        setTimeout(async () => {
-          try {
-            if (currentRound < GAME_CONFIG.rounds) {
-              const words = wordBanks[difficulty] || wordBanks.easy;
-              const randomIndex = Math.floor(Math.random() * words.length);
-              const wordItem = words[randomIndex];
-              const scrambled = scrambleWord(wordItem.word);
-              const nextRound = currentRound + 1;
-
-              try {
-                await pool.query('UPDATE game_rooms SET current_round = $1 WHERE id = $2', [nextRound, roomId]);
-              } catch {}
-
-              setRoomState(roomId, {
-                currentWord: wordItem.word,
-                currentHint: wordItem.hint,
-                currentRound: nextRound,
-                locked: false,
-                roundStartedAt: Date.now()
-              });
-
-              io.to(roomId).emit('newWord', {
-                scrambled: scrambled,
-                hint: wordItem.hint,
-                length: wordItem.word.length,
-                round: nextRound
-              });
-            } else {
-              const winner = participantsList[0];
-              io.to(roomId).emit('gameEnded', { winner, participants: participantsList });
-              roomState.locked = false;
-            }
-          } catch (error) {
-            console.error('Error sending next word:', error);
-            roomState.locked = false;
-          }
-        }, 2000);
-      }
     } catch (error) {
       console.error('Submit answer error:', error);
       socket.emit('error', { message: 'Failed to submit answer' });
