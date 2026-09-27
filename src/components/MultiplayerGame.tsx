@@ -28,6 +28,7 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
   const [gameEnded, setGameEnded] = useState(false);
   const [waitingForOthers, setWaitingForOthers] = useState(false);
   const [winner, setWinner] = useState<Player | null>(null);
+  const [showCountdown, setShowCountdown] = useState(false);
   const [roundCount, setRoundCount] = useState(1);
   const maxRounds = 10;
 
