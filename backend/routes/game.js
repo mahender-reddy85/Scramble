@@ -44,7 +44,6 @@ router.get('/rooms', optionalAuth, async (req, res) => {
     `);
     res.json({ rooms: rooms.rows });
   } catch (error) {
-    console.error('Get rooms error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -73,7 +72,6 @@ router.post('/rooms', authenticateToken, async (req, res) => {
 
     res.status(201).json({ roomId, roomCode });
   } catch (error) {
-    console.error('Create room error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -129,7 +127,6 @@ router.post('/rooms/:roomId/join', authenticateToken, async (req, res) => {
 
     res.json({ participantId });
   } catch (error) {
-    console.error('Join room error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -157,7 +154,6 @@ router.patch('/rooms/:roomId/ready', authenticateToken, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Update ready status error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -206,10 +202,10 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
     setTimeout(async () => {
       const words = wordBanks[difficulty] || wordBanks.easy;
       
-      // Get all participants in the room
+      
       const participants = await pool.query('SELECT user_id FROM game_participants WHERE room_id = $1', [roomId]);
       
-      // Send different random words to each player
+      
       const room = io.sockets.adapter.rooms.get(roomId);
       if (room) {
         room.forEach(socketId => {
@@ -238,7 +234,6 @@ router.post('/rooms/:roomId/start', authenticateToken, async (req, res) => {
       }
     }, 500);
   } catch (error) {
-    console.error('Start game error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -299,7 +294,6 @@ router.post('/rooms/:roomId/answer', authenticateToken, async (req, res) => {
 
     res.json({ success: true, isCorrect, points: pointsToAward });
   } catch (error) {
-    console.error('Submit answer error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -332,7 +326,6 @@ router.get('/rooms/:roomId', optionalAuth, async (req, res) => {
       participants: participants.rows
     });
   } catch (error) {
-    console.error('Get room details error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -351,7 +344,6 @@ router.get('/participants/:roomId', optionalAuth, async (req, res) => {
 
     res.json(participants.rows);
   } catch (error) {
-    console.error('Get participants error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

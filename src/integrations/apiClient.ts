@@ -14,7 +14,7 @@ const handleResponse = async (res: Response) => {
       const data = await res.json();
       if (data && data.error) errorMsg = data.error;
     } catch {
-      // Non-JSON error response
+      
     }
     throw new Error(errorMsg);
   }

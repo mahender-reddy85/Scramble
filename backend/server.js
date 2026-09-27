@@ -49,28 +49,21 @@ async function endGame(roomId, socketIo) {
         'UPDATE game_rooms SET status = $1, finished_at = NOW() WHERE id = $2',
         ['finished', roomId]
       );
-    } catch (dbErr) {
-      console.error('Failed to update room status:', dbErr.message);
-    }
+    } catch (dbErr) {}
 
     socketIo.to(roomId).emit('game-ended', { winner, participants: participants.rows });
     deleteRoomState(roomId);
-  } catch (err) {
-    console.error('End game logic failure:', err);
-  }
+  } catch (err) {}
 }
 
 async function ensureSchema() {
   try {
     await pool.query('ALTER TABLE game_rooms ADD COLUMN IF NOT EXISTS current_round INTEGER DEFAULT 1;');
-  } catch (err) {
-    console.warn('DB schema check note:', err.message);
-  }
+  } catch (err) {}
 }
 ensureSchema();
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
 
   socket.on('join-room', async (data) => {
     const { roomId, userId, playerName, token } = data;
@@ -140,9 +133,7 @@ io.on('connection', (socket) => {
         const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
         userId = decoded.id;
         socket.userId = userId;
-      } catch (err) {
-        console.warn('Fallback token verification failed:', err.message);
-      }
+      } catch (err) {}
     }
     if (!userId && data?.userId) {
       userId = data.userId;
@@ -195,9 +186,7 @@ io.on('connection', (socket) => {
           'INSERT INTO game_events (room_id, user_id, event_type, current_word, is_correct, points_earned) VALUES ($1, $2, $3, $4, $5, $6)',
           [roomId, userId, 'answer_submitted', word, isCorrect, pointsToAward]
         );
-      } catch (eventErr) {
-        console.warn('Game event recording note:', eventErr.message);
-      }
+      } catch (eventErr) {}
 
       if (isCorrect) {
         try {
@@ -259,28 +248,26 @@ io.on('connection', (socket) => {
                 round: nextRound
               });
             } else {
-              // Player finished all rounds
+              
               setPlayerState(roomId, userId, { finished: true });
               const roomState = getRoomState(roomId);
               roomState.finishedPlayers.add(userId);
               
-              // Check if all players finished
+              
               const allParticipants = await pool.query('SELECT user_id FROM game_participants WHERE room_id = $1', [roomId]);
               const totalPlayers = allParticipants.rows.length;
               
               if (roomState.finishedPlayers.size >= totalPlayers) {
-                // All players finished, end game
+                
                 const winner = participantsList[0];
                 io.to(roomId).emit('gameEnded', { winner, participants: participantsList });
                 deleteRoomState(roomId);
               } else {
-                // Send waiting state to this player
+                
                 socket.emit('waiting-for-others');
               }
             }
-          } catch (error) {
-            console.error('Error sending next word:', error);
-          }
+          } catch (error) {}
         }, 2000);
       }
     } catch (error) {
@@ -297,9 +284,7 @@ io.on('connection', (socket) => {
         const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
         userId = decoded.id;
         socket.userId = userId;
-      } catch (err) {
-        console.warn('Fallback token verification failed:', err.message);
-      }
+      } catch (err) {}
     }
     if (!userId && data?.userId) {
       userId = data.userId;
@@ -342,17 +327,17 @@ io.on('connection', (socket) => {
           });
         }, 500);
       } else {
-        // Player finished all rounds due to timeout
+        
         setPlayerState(roomId, userId, { finished: true });
         const roomState = getRoomState(roomId);
         roomState.finishedPlayers.add(userId);
         
-        // Check if all players finished
+        
         const allParticipants = await pool.query('SELECT user_id FROM game_participants WHERE room_id = $1', [roomId]);
         const totalPlayers = allParticipants.rows.length;
         
         if (roomState.finishedPlayers.size >= totalPlayers) {
-          // All players finished, end game
+          
           const participants = await pool.query(`
             SELECT gp.*, COALESCE(gp.player_name, p.username) as player_name
             FROM game_participants gp
@@ -364,13 +349,11 @@ io.on('connection', (socket) => {
           io.to(roomId).emit('gameEnded', { winner, participants: participants.rows });
           deleteRoomState(roomId);
         } else {
-          // Send waiting state to this player
+          
           socket.emit('waiting-for-others');
         }
       }
-    } catch (error) {
-      console.error('Error handling round timeout:', error);
-    }
+    } catch (error) {}
   });
 
   socket.on('toggle-ready', async (data) => {
@@ -407,7 +390,6 @@ io.on('connection', (socket) => {
 
       io.to(roomId).emit('participantsUpdated', participants.rows);
     } catch (error) {
-      console.error('Toggle ready error:', error);
       socket.emit('error', { message: 'Failed to update ready status' });
     }
   });
@@ -439,9 +421,7 @@ io.on('connection', (socket) => {
           'UPDATE game_participants SET rounds_completed = $1 WHERE room_id = $2 AND user_id = $3',
           [GAME_CONFIG.rounds, roomId, userId]
         );
-      } catch (dbErr) {
-        console.error('DB update rounds_completed failed, falling back to memory:', dbErr.message);
-      }
+      } catch (dbErr) {}
 
       const roomPlayers = await pool.query(
         'SELECT user_id FROM game_participants WHERE room_id = $1',
@@ -468,18 +448,15 @@ io.on('connection', (socket) => {
         }
       }
     } catch (error) {
-      console.error('Player finished error:', error);
       socket.emit('waiting-for-others');
     }
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
   });
 });
 
 const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
 });

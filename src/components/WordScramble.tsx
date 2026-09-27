@@ -72,7 +72,7 @@ export default function WordScramble() {
           setWordList(FALLBACK_WORDS[difficulty] || FALLBACK_WORDS.easy);
         }
       } catch {
-        // Fallback to built-in words if backend is waking up or offline
+        
         setWordList(FALLBACK_WORDS[difficulty] || FALLBACK_WORDS.easy);
       } finally {
         setIsLoadingWords(false);

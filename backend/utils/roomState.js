@@ -3,7 +3,7 @@ const rooms = new Map();
 export function getRoomState(roomId) {
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
-      players: new Map(), // Map of userId -> { currentWord, currentHint, currentRound, roundStartedAt, finished }
+      players: new Map(), 
       locked: false,
       finishedPlayers: new Set()
     });

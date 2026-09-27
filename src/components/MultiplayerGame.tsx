@@ -19,8 +19,6 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
   const [currentHint, setCurrentHint] = useState('');
   const [timeLeft, setTimeLeft] = useState(20);
   const [isActive, setIsActive] = useState(false);
-  const [countdown, setCountdown] = useState(3);
-  const [showCountdown, setShowCountdown] = useState(false);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
   const [showHint, setShowHint] = useState(false);
@@ -135,11 +133,9 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
             stopTimer();
             setIsActive(false);
             setFeedback({ message: `Correct Answer: +${data.points} points`, type: 'success' });
-            console.log('Feedback set:', `Correct Answer: +${data.points} points`);
           } else {
             playSound('wrong');
             setFeedback({ message: 'Incorrect answer. Please try again!', type: 'error' });
-            console.log('Feedback set:', 'Incorrect answer. Please try again!');
             setAnswer('');
             setTimeout(() => {
               setFeedback({ message: '', type: '' });
@@ -225,30 +221,10 @@ export default function MultiplayerGame({ roomId, initialWord, onExit, socket }:
       setCurrentHint(initialWord.hint);
       setTimeLeft(20);
       setIsActive(true);
-      setShowCountdown(true);
-      setCountdown(3);
     }
   }, [initialWord]);
 
-  useEffect(() => {
-    let countdownInterval: NodeJS.Timeout;
-    if (showCountdown && countdown > 0) {
-      countdownInterval = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval);
-            setShowCountdown(false);
-            setIsActive(true);
-            setTimeLeft(20);
-            inputRef.current?.focus();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(countdownInterval);
-  }, [showCountdown, countdown]);
+
 
   useEffect(() => {
     if (roundCount > maxRounds && roundCount > 0) {
