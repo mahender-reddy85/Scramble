@@ -130,10 +130,7 @@ io.on('connection', (socket) => {
         socket.userId = userId;
       } catch (err) {}
     }
-    if (!userId && data?.userId) {
-      userId = data.userId;
-      socket.userId = userId;
-    }
+
     if (!userId) {
       socket.emit('error', { message: 'Unauthorized' });
       return;
@@ -281,10 +278,7 @@ io.on('connection', (socket) => {
         socket.userId = userId;
       } catch (err) {}
     }
-    if (!userId && data?.userId) {
-      userId = data.userId;
-      socket.userId = userId;
-    }
+
     if (!userId) {
       socket.emit('error', { message: 'Unauthorized' });
       return;
@@ -360,9 +354,7 @@ io.on('connection', (socket) => {
         socket.userId = userId;
       } catch {}
     }
-    if (!userId && data?.userId) {
-      userId = data.userId;
-    }
+
     if (!userId) {
       socket.emit('error', { message: 'Unauthorized' });
       return;
@@ -398,9 +390,7 @@ io.on('connection', (socket) => {
         socket.userId = userId;
       } catch {}
     }
-    if (!userId && data?.userId) {
-      userId = data.userId;
-    }
+
     if (!userId) {
       socket.emit('error', { message: 'Unauthorized' });
       return;
